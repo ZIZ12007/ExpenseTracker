@@ -1,0 +1,8 @@
+[build]
+  command = "npm --prefix frontend/expense-tracker install && npm --prefix frontend/expense-tracker run build"
+  publish = "frontend/expense-tracker/dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

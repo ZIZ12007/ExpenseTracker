@@ -22,6 +22,19 @@ const connectDB = async () => {
         }
     }
 
+    // Fallback: spin up an in-memory MongoDB server for local development
+    try {
+        console.log('Attempting to start in-memory MongoDB server...');
+        const { MongoMemoryServer } = require('mongodb-memory-server');
+        const mongod = await MongoMemoryServer.create();
+        const uri = mongod.getUri();
+        await mongoose.connect(uri);
+        console.log('In-memory MongoDB connected at', uri);
+        return;
+    } catch (memError) {
+        console.warn('In-memory MongoDB failed:', memError.message);
+    }
+
     console.warn('MongoDB not available; starting backend in offline mode.');
     if (lastError) {
         console.warn(lastError.message);

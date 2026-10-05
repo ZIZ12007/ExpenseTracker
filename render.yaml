@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: expensetracker
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm --prefix backend install && npm --prefix frontend/expense-tracker install && npm --prefix frontend/expense-tracker run build
+    startCommand: npm --prefix backend start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: PORT
+        value: 8000
