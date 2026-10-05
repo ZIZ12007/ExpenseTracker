@@ -1,0 +1,10 @@
+node_modules/
+**/node_modules/
+**/dist/
+**/.env
+**/.env.*
+!**/.env.example
+backend/uploads/
+backend/*.xlsx
+backend/tmp-debug-delete.js
+*.log
