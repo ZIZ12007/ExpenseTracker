@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+backend/node_modules
+frontend/expense-tracker/node_modules
+frontend/expense-tracker/dist
+.git
+.gitignore
+backend/uploads
+*.log
+*.xlsx
+.env
+**/.env

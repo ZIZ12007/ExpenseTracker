@@ -63,7 +63,13 @@ app.get("/{*splat}", (req, res, next) => {
     if (req.path.startsWith("/api/") || req.path.startsWith("/uploads/")) {
         return next();
     }
-    res.sendFile(path.join(frontendDist, "index.html"));
+    const indexFile = path.join(frontendDist, "index.html");
+    if (!fs.existsSync(indexFile)) {
+        // Serverless hosts serve the SPA themselves and do not include the
+        // frontend build in the function bundle.
+        return res.status(404).json({ message: "Frontend build not found." });
+    }
+    res.sendFile(indexFile);
 });
 
 // Global error handler
@@ -72,5 +78,12 @@ app.use((err, req, res, next) => {
     res.status(err.status || 500).json({ message: err.message || "Server error" });
 });
 
-const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+// Exported for serverless hosts (Vercel). Started as a normal server when run
+// directly (node server.js).
+module.exports = app;
+
+if (require.main === module) {
+    connectDB();
+    const PORT = process.env.PORT || 8000;
+    app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+}
