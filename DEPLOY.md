@@ -11,6 +11,13 @@ most reliable setup is **one service** that serves both the API and the app.
 
 ## Option A (recommended): Render + MongoDB Atlas
 
+> **Before you start:** a Render workspace needs a payment method on file
+> (`dashboard.render.com/billing`) before it will build *anything*. The free
+> web service still costs $0 — the card is only used to verify the account.
+> Without it, every deploy fails in ~15 seconds with `build_failed` and no
+> build log, and creating a service returns
+> `402 Payment information is required`.
+
 ### 1. Database — MongoDB Atlas (free M0)
 
 1. Create a free cluster.
@@ -148,6 +155,8 @@ If MongoDB is unreachable the backend starts an in-memory MongoDB
 
 | Symptom | Cause |
 | --- | --- |
+| Every deploy fails in ~15s with `build_failed` and no build output | The Render workspace has no payment method on file. Add a card at `dashboard.render.com/billing`. The free tier still costs $0. |
+| `402 Payment information is required` when creating a service | Same as above — billing is not enabled on the workspace. |
 | `TypeError: Missing parameter name` on startup | Express 5 requires named wildcards. The SPA route must be `app.get("/{*splat}", ...)`, not `app.get("*", ...)`. |
 | `sh: vite: not found` during build | The host set `NODE_ENV=production`, so npm skipped devDependencies. Use `npm install --include=dev` for the frontend. |
 | `stream did not contain valid UTF-8` during build | A source file is stored as UTF-16 (with a BOM) instead of UTF-8. `src/utils/axiosInstance.js` was; it has been converted. |
