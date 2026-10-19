@@ -5,6 +5,7 @@ const path = require("path");
 const fs = require("fs");
 const mongoose = require("mongoose");
 const connectDB = require("./config/db");
+const { resolveUploadsDir } = require("./config/storage");
 const authRoutes = require("./routes/authRoutes");
 const incomeRoutes = require("./routes/incomeRoutes");
 const expenseRoutes = require("./routes/expenseRoutes");
@@ -46,9 +47,9 @@ app.use("/api/v1/expense", expenseRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 
 // Ensure the upload directory exists (it is gitignored, so it is missing on
-// fresh checkouts and on every deploy). Multer does not create it for us.
-const uploadsDir = path.join(__dirname, "uploads");
-fs.mkdirSync(uploadsDir, { recursive: true });
+// fresh checkouts and on every deploy). On read-only hosts this falls back to
+// the system temp directory.
+const uploadsDir = resolveUploadsDir();
 
 // Serve uploaded images statically
 app.use("/uploads", express.static(uploadsDir));

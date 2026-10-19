@@ -1,12 +1,11 @@
 const multer = require('multer')
 const path = require('path')
-const fs = require('fs')
 const { isEnabled } = require('../services/cloudinary')
+const { resolveUploadsDir } = require('../config/storage')
 
 // Resolve the upload directory from this file, not from process.cwd(), so the
 // folder is the same one that server.js serves statically at /uploads.
-const uploadsDir = path.join(__dirname, '..', 'uploads')
-fs.mkdirSync(uploadsDir, { recursive: true })
+const uploadsDir = resolveUploadsDir()
 
 // When Cloudinary is configured the file is kept in memory and uploaded from
 // there; otherwise it is written to local disk.
