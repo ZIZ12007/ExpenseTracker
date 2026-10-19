@@ -127,7 +127,38 @@ accepts the frontend origin.
 
 ---
 
-## Option C: Docker
+## Option D: Vercel (serverless, no card required)
+
+Vercel's free Hobby tier runs the whole app — API and frontend — from a
+single project, with no credit card.
+
+How it works: `api/index.js` exports the Express app as a request handler
+(the app is also exported from `backend/server.js` so it can run as a normal
+server elsewhere), Vercel serves the built frontend as static files, and
+`vercel.json` routes `/api/*` to the function and everything else to
+`index.html`.
+
+```bash
+npm i -g vercel
+vercel --token <token>            # link a project
+vercel --token <token> deploy --prod
+```
+
+Environment variables (set with `vercel env add <name> <value>` or in the
+dashboard):
+
+| Variable | Value |
+| --- | --- |
+| `MONGO_URL` | your Atlas connection string |
+| `JWT_SECRET` | a long random string |
+| `NODE_ENV` | `production` |
+| `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | optional, but see below |
+
+**Uploads:** Vercel's filesystem is read-only, so uploaded images fall back
+to the function's temp directory and are lost when the instance recycles. Add
+the three Cloudinary variables to make avatars permanent.
+
+## Option E: Docker
 
 ```bash
 docker build -t expensetracker .
