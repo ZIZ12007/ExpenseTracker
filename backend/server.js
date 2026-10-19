@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const fs = require("fs");
 const mongoose = require("mongoose");
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
@@ -10,6 +11,11 @@ const expenseRoutes = require("./routes/expenseRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 
 const app = express();
+
+// Behind a TLS-terminating proxy (Render, Railway, Heroku, Fly) the request
+// arrives as http. Trusting the proxy makes req.protocol report https, so
+// generated URLs (e.g. uploaded image URLs) are not served as mixed content.
+app.set("trust proxy", true);
 
 app.use(
     cors({
@@ -39,15 +45,24 @@ app.use("/api/v1/income", incomeRoutes);
 app.use("/api/v1/expense", expenseRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 
+// Ensure the upload directory exists (it is gitignored, so it is missing on
+// fresh checkouts and on every deploy). Multer does not create it for us.
+const uploadsDir = path.join(__dirname, "uploads");
+fs.mkdirSync(uploadsDir, { recursive: true });
+
 // Serve uploaded images statically
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads", express.static(uploadsDir));
 
 // Serve frontend static files in production
 const frontendDist = path.join(__dirname, "..", "frontend", "expense-tracker", "dist");
 app.use(express.static(frontendDist));
 
-// SPA catch-all: serve index.html for any non-API route
-app.get("*", (req, res) => {
+// SPA catch-all: serve index.html for any non-API route.
+// Express 5 requires named wildcards ("*splat"), a bare "*" throws at startup.
+app.get("/{*splat}", (req, res, next) => {
+    if (req.path.startsWith("/api/") || req.path.startsWith("/uploads/")) {
+        return next();
+    }
     res.sendFile(path.join(frontendDist, "index.html"));
 });
 

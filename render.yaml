@@ -3,8 +3,12 @@ services:
     name: expensetracker
     runtime: node
     plan: free
-    buildCommand: npm install && npm --prefix backend install && npm --prefix frontend/expense-tracker install && npm --prefix frontend/expense-tracker run build
+    # --include=dev is required: Render sets NODE_ENV=production for the build,
+    # which makes npm skip devDependencies (vite, tailwindcss) and the build
+    # fails with "vite: not found".
+    buildCommand: npm install && npm --prefix backend install --omit=dev && npm --prefix frontend/expense-tracker install --include=dev && npm --prefix frontend/expense-tracker run build
     startCommand: npm --prefix backend start
+    healthCheckPath: /
     envVars:
       - key: NODE_ENV
         value: production
@@ -12,5 +16,8 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
-      - key: PORT
-        value: 8000
+      # Only needed if the frontend is hosted separately (Netlify/Vercel).
+      # Leave unset for the single-service setup, where the API and the app
+      # share an origin.
+      - key: CLIENT_URL
+        sync: false

@@ -1,5 +1,8 @@
 [build]
-  command = "npm --prefix frontend/expense-tracker install && npm --prefix frontend/expense-tracker run build"
+  # --include=dev is required: Netlify sets NODE_ENV=production for the build,
+  # which makes npm skip devDependencies (vite, tailwindcss) and the build
+  # fails with "vite: not found".
+  command = "npm --prefix frontend/expense-tracker install --include=dev && npm --prefix frontend/expense-tracker run build"
   publish = "frontend/expense-tracker/dist"
 
 [[redirects]]
