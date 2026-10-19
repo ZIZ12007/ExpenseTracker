@@ -65,14 +65,27 @@ Render then builds the frontend, starts the backend, and gives you a URL like
 ### 4. Uploaded images need a persistent disk
 
 `backend/uploads/` is on the container's local disk, so profile photos are
-lost on every redeploy and whenever the free instance restarts. Options:
+lost on every redeploy and whenever the free instance restarts. Two options:
 
-- **Persistent disk** (Render paid plans): mount it at
-  `/opt/render/project/src/backend/uploads`.
-- **Object storage**: move uploads to Cloudinary or S3. The API route already
-  returns an absolute `imageUrl`, so only `backend/middleware/uploadMiddleware.js`
-  and the `/upload-image` handler in `backend/routes/authRoutes.js` need to
-  change.
+**Option A — Cloudinary (free, recommended).** No code change is needed; the
+app switches automatically once these three environment variables are set on
+the service:
+
+```
+CLOUDINARY_CLOUD_NAME = <from console.cloudinary.com/settings/api-keys>
+CLOUDINARY_API_KEY    = <key>
+CLOUDINARY_API_SECRET = <secret>
+```
+
+Uploads are then signed server-side and stored in Cloudinary, so the URLs keep
+working across every redeploy. `CLOUDINARY_FOLDER` (default
+`expensetracker/avatars`) and `CLOUDINARY_PUBLIC_ID_PREFIX` are optional.
+
+**Option B — a Render persistent disk** (paid plans): mount it at
+`/opt/render/project/src/backend/uploads`.
+
+Without either, uploads still work — they are just stored on the instance's
+local disk and disappear on the next deploy.
 
 ---
 
