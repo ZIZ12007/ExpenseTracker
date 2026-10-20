@@ -554,3 +554,31 @@ exports.verifyMagicLink = async (req, res) => {
 exports.googleStatus = async (req, res) => {
     res.status(200).json({ enabled: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) });
 };
+
+/**
+ * What is switched on, so it can be checked without guessing.
+ */
+exports.serviceStatus = async (req, res) => {
+    const brevo = require('../services/providers/brevo');
+    const resend = require('../services/providers/resend');
+    const ai = require('../services/ai');
+
+    const provider = process.env.MAIL_PROVIDER?.toLowerCase()
+        || (brevo.isConfigured() ? 'brevo' : 'resend');
+
+    res.status(200).json({
+        email: {
+            provider,
+            configured: provider === 'brevo' ? brevo.isConfigured() : resend.isConfigured(),
+            sender: provider === 'brevo' ? brevo.sender().email : (process.env.MAIL_FROM || ''),
+            signInEmails: process.env.SEND_SIGN_IN_EMAIL || 'always',
+        },
+        ai: {
+            configured: ai.isConfigured(),
+            models: ai.MODEL_CHAIN,
+        },
+        google: {
+            enabled: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+        },
+    });
+};

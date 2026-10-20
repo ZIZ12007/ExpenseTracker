@@ -1,7 +1,7 @@
 import { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    LuUser, LuCoins, LuBell, LuKeyRound, LuMail, LuLogOut, LuShieldCheck, LuSparkles,
+    LuUser, LuCoins, LuBell, LuKeyRound, LuMail, LuLogOut, LuShieldCheck, LuSparkles, LuInfo,
 } from 'react-icons/lu';
 import DashboardLayout from '../components/Layout/DashboardLayout';
 import { useUserAuth } from '../hooks/useUserAuth';
@@ -26,6 +26,14 @@ const Settings = () => {
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
+    const [services, setServices] = useState({});
+
+    // Which services this deployment has switched on.
+    useEffect(() => {
+        axiosInstance.get(`${API_PATHS.AUTH.SERVICE_STATUS}`)
+            .then((response) => setServices(response.data || {}))
+            .catch(() => setServices({}));
+    }, []);
 
     useEffect(() => {
         if (!user) return;
@@ -276,6 +284,33 @@ const Settings = () => {
                     <LuSparkles className="text-violet-500" />
                     Tip: set your daily allowance in Settings and Expense Tracker will work out what is left for food each day.
                 </p>
+
+                <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
+                    <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900"><LuInfo className="text-violet-600" /> Services</h2>
+                    <p className="mt-1 text-sm text-slate-500">What this deployment has switched on.</p>
+                    <dl className="mt-4 space-y-2 text-sm">
+                        <div className="flex items-center justify-between gap-3">
+                            <dt className="text-slate-600">Email</dt>
+                            <dd className="font-medium text-slate-900">
+                                {services.email?.configured
+                                    ? `${services.email.provider} (${services.email.sender || 'no sender set'})`
+                                    : 'not configured - emails are written to the server log'}
+                            </dd>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                            <dt className="text-slate-600">Food suggestions</dt>
+                            <dd className="font-medium text-slate-900">
+                                {services.ai?.configured ? 'AI enabled' : 'built-in planner'}
+                            </dd>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                            <dt className="text-slate-600">Google sign in</dt>
+                            <dd className="font-medium text-slate-900">
+                                {services.google?.enabled ? 'available' : 'not set up'}
+                            </dd>
+                        </div>
+                    </dl>
+                </section>
             </div>
         </DashboardLayout>
     );

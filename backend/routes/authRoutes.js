@@ -16,6 +16,7 @@ const {
     requestMagicLink,
     verifyMagicLink,
     magicLinkEntry,
+    serviceStatus,
 } = require("../controllers/authController")
 const upload = require("../middleware/uploadMiddleware")
 const fs = require('fs')
@@ -37,6 +38,7 @@ router.post("/forgot-password", forgotPassword)
 router.post("/reset-password", resetPassword)
 
 router.get("/google/status", googleStatus)
+router.get("/service-status", serviceStatus)
 router.get("/google", googleStart)
 router.get("/google/callback", googleCallback)
 
