@@ -11,9 +11,10 @@ const RateLimit = require('../models/RateLimit');
  * One counter is written per request, so this is used for the endpoints that
  * matter (authentication) rather than for every API call.
  */
-const sharedLimit = ({ key, windowMs, limit, message }) => async (req, res, next) => {
+const sharedLimit = ({ key, windowMs, limit, message, keyFn }) => async (req, res, next) => {
     const windowStart = Math.floor(Date.now() / windowMs) * windowMs;
-    const id = `${key}:${req.ip || 'unknown'}:${windowStart}`;
+    const subject = keyFn ? keyFn(req) : (req.ip || 'unknown');
+    const id = `${key}:${subject}:${windowStart}`;
 
     try {
         const counter = await RateLimit.findOneAndUpdate(
@@ -41,4 +42,14 @@ const sharedLimit = ({ key, windowMs, limit, message }) => async (req, res, next
     next();
 };
 
-module.exports = { sharedLimit };
+/**
+ * The identity being protected, used as part of the counter key.
+ */
+const byIp = (req) => req.ip || 'unknown';
+
+const byAccount = (req) => {
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    return email ? `account:${email}` : 'account:unknown';
+};
+
+module.exports = { sharedLimit, byIp, byAccount };

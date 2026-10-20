@@ -6,7 +6,7 @@ const fs = require("fs");
 const mongoose = require("mongoose");
 const compression = require("compression");
 const rateLimit = require("express-rate-limit");
-const { sharedLimit } = require("./middleware/sharedRateLimit");
+const { sharedLimit, byIp, byAccount } = require("./middleware/sharedRateLimit");
 const connectDB = require("./config/db");
 const { resolveUploadsDir } = require("./config/storage");
 const authRoutes = require("./routes/authRoutes");
@@ -57,9 +57,11 @@ const apiLimiter = rateLimit({
     message: { message: "Too many requests. Please slow down and try again shortly." },
 });
 
+// A fast, per-instance guard. The shared limiters below enforce the real
+// limits, so this one is deliberately generous.
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: Number(process.env.RATE_LIMIT_AUTH_MAX || 40),
+    limit: Number(process.env.RATE_LIMIT_AUTH_IP_MAX || 100),
     standardHeaders: "draft-7",
     legacyHeaders: false,
     validate: { trustProxy: false, xForwardedForHeader: false },
@@ -67,12 +69,28 @@ const authLimiter = rateLimit({
 });
 
 // The in-memory limiter only sees the requests that reach one instance, so
-// the auth endpoints also use a counter that is shared through the database.
-const authSharedLimiter = sharedLimit({
-    key: 'auth',
+// the auth endpoints also use counters that are shared through the database.
+//
+// Two budgets are enforced:
+//   - per IP, generous, so one person cannot spray many accounts
+//   - per account, strict, so one account cannot be brute forced
+// The per-account budget is what stops guessing a password, and because it is
+// per account it does not punish people who share an IP (a campus, an office,
+// a mobile carrier).
+const authIpLimiter = sharedLimit({
+    key: 'auth-ip',
     windowMs: 15 * 60 * 1000,
-    limit: Number(process.env.RATE_LIMIT_AUTH_MAX || 40),
+    limit: Number(process.env.RATE_LIMIT_AUTH_IP_MAX || 100),
+    keyFn: byIp,
     message: "Too many authentication attempts. Please try again later.",
+});
+
+const authAccountLimiter = sharedLimit({
+    key: 'auth-account',
+    windowMs: 15 * 60 * 1000,
+    limit: Number(process.env.RATE_LIMIT_AUTH_MAX || 10),
+    keyFn: byAccount,
+    message: "Too many attempts for this account. Please try again later.",
 });
 
 connectDB();
@@ -95,9 +113,9 @@ app.use("/api/v1", async (req, res, next) => {
     next();
 });
 
-app.use("/api/v1/auth/login", authLimiter, authSharedLimiter);
-app.use("/api/v1/auth/register", authLimiter, authSharedLimiter);
-app.use("/api/v1/auth/refresh", authLimiter, authSharedLimiter);
+app.use("/api/v1/auth/login", authLimiter, authIpLimiter, authAccountLimiter);
+app.use("/api/v1/auth/register", authLimiter, authIpLimiter, authAccountLimiter);
+app.use("/api/v1/auth/refresh", authLimiter, authIpLimiter);
 app.use("/api/v1", apiLimiter);
 
 app.use("/api/v1/auth", authRoutes);

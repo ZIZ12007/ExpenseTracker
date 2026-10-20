@@ -196,6 +196,12 @@ counter only sees the requests that reach one process, which on a serverless
 host means an attacker can spread requests across instances; one write per
 attempt keeps the limit global.
 
+Two budgets are enforced: a strict one **per account** (which is what stops a
+password being guessed) and a generous one **per IP** (which stops one client
+spraying many accounts). Splitting them this way means people who share an IP
+- a campus, an office, a mobile carrier - are not locked out of their own
+account by a stranger's failed attempts.
+
 Measured with 200 simulated users and 60,000 transactions (800 requests, 50 concurrent):
 
 | | With indexes | Without indexes |
@@ -219,7 +225,8 @@ All optional - the defaults suit a small production app.
 | `USER_CACHE_TTL_MS` | `60000` | How long the authenticated user record is cached. |
 | `CACHE_MAX_ENTRIES` | `500` | Maximum cached entries per instance. |
 | `RATE_LIMIT_API_MAX` | `600` | Requests per 5 minutes per IP. |
-| `RATE_LIMIT_AUTH_MAX` | `40` | Auth attempts per 15 minutes per IP. |
+| `RATE_LIMIT_AUTH_MAX` | `10` | Failed attempts per 15 minutes **per account**. |
+| `RATE_LIMIT_AUTH_IP_MAX` | `100` | Auth attempts per 15 minutes **per IP**. |
 | `JWT_EXPIRES_IN` | `7d` | Access token lifetime. |
 | `JWT_REFRESH_EXPIRES_IN` | `30d` | Refresh token lifetime. |
 
