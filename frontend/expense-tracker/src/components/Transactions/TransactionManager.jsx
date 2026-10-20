@@ -31,6 +31,8 @@ const TransactionManager = ({ type }) => {
   const choices = isIncome ? INCOME_SOURCES : EXPENSE_CATEGORIES
 
   const [transactions, setTransactions] = useState([])
+  const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, pages: 1 })
+  const [summary, setSummary] = useState({ allTime: 0, thisMonth: 0 })
   const [form, setForm] = useState({ name: '', amount: '', date: today(), icon: '' })
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -38,44 +40,55 @@ const TransactionManager = ({ type }) => {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
-  const fetchTransactions = useCallback(async () => {
+  const applyPayload = useCallback((payload) => {
+    // The API returns { data, pagination, summary }.
+    const rows = Array.isArray(payload) ? payload : (payload?.data || [])
+    setTransactions(rows)
+    if (!Array.isArray(payload)) {
+      if (payload?.pagination) setPagination(payload.pagination)
+      if (payload?.summary) setSummary(payload.summary)
+    }
+  }, [])
+
+  const fetchTransactions = useCallback(async (page = pagination.page, term = search) => {
     try {
-      const response = await axiosInstance.get(listPath)
-      setTransactions(Array.isArray(response.data) ? response.data : [])
+      const response = await axiosInstance.get(listPath, { params: { page, search: term || undefined } })
+      applyPayload(response.data)
       setError('')
     } catch (requestError) {
       setError(requestError.response?.data?.message || `Couldn't load ${title.toLowerCase()}. Please try again.`)
     } finally {
       setLoading(false)
     }
-  }, [listPath, title])
+  }, [listPath, title, pagination.page, search, applyPayload])
+
+  // Debounce the search box so typing does not fire a request per keystroke.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      axiosInstance.get(listPath, { params: { page: 1, search: search || undefined } })
+        .then((response) => applyPayload(response.data))
+        .catch(() => {})
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [search, listPath, applyPayload])
 
   useEffect(() => {
     let active = true
-    axiosInstance.get(listPath).then((response) => {
-      if (active) setTransactions(Array.isArray(response.data) ? response.data : [])
+    setLoading(true)
+    axiosInstance.get(listPath, { params: { page: 1 } }).then((response) => {
+      if (active) applyPayload(response.data)
     }).catch((requestError) => {
       if (active) setError(requestError.response?.data?.message || `Couldn't load ${title.toLowerCase()}. Please try again.`)
     }).finally(() => {
       if (active) setLoading(false)
     })
     return () => { active = false }
-  }, [listPath, title])
+  }, [listPath, title, applyPayload])
 
-  const visibleTransactions = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    if (!query) return transactions
-    return transactions.filter((item) => (isIncome ? item.source : item.category)?.toLowerCase().includes(query))
-  }, [transactions, search, isIncome])
+  const visibleTransactions = useMemo(() => transactions, [transactions])
 
-  const thisMonthTotal = transactions.reduce((sum, item) => {
-    const date = new Date(item.date)
-    const now = new Date()
-    return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()
-      ? sum + Number(item.amount || 0)
-      : sum
-  }, 0)
-  const total = transactions.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+  const thisMonthTotal = summary.thisMonth
+  const total = summary.allTime
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -111,8 +124,8 @@ const TransactionManager = ({ type }) => {
     setError('')
     try {
       await axiosInstance.delete(deletePath(id))
-      setTransactions((current) => current.filter((item) => item._id !== id))
       setMessage(`${isIncome ? 'Income' : 'Expense'} deleted.`)
+      await fetchTransactions()
     } catch (requestError) {
       setError(requestError.response?.data?.message || `Couldn't delete this ${isIncome ? 'income' : 'expense'}.`)
     }
@@ -160,7 +173,7 @@ const TransactionManager = ({ type }) => {
             <p className="text-sm text-slate-500">This month</p><p className="mt-3 text-3xl font-bold text-slate-900">{currency(thisMonthTotal)}</p>
           </div>
           <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">Entries recorded</p><p className="mt-3 text-3xl font-bold text-slate-900">{transactions.length}</p>
+            <p className="text-sm text-slate-500">Entries recorded</p><p className="mt-3 text-3xl font-bold text-slate-900">{pagination.total}</p>
           </div>
         </section>
 
@@ -200,10 +213,38 @@ const TransactionManager = ({ type }) => {
 
           <section className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
             <div className="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
-              <div><h2 className="font-semibold text-slate-900">{title} history</h2><p className="mt-1 text-xs text-slate-500">{visibleTransactions.length} {visibleTransactions.length === 1 ? 'entry' : 'entries'}</p></div>
-              <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-slate-400 focus-within:border-violet-400">
-                <LuSearch /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Search ${title.toLowerCase()}`} className="w-full bg-transparent text-sm text-slate-700 outline-none sm:w-44" />
-              </label>
+              <div>
+                <h2 className="font-semibold text-slate-900">{title} history</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  {pagination.total} {pagination.total === 1 ? 'entry' : 'entries'}
+                  {pagination.pages > 1 ? ` · page ${pagination.page} of ${pagination.pages}` : ''}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                {pagination.pages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={pagination.page <= 1 || loading}
+                      onClick={() => fetchTransactions(pagination.page - 1, search)}
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-violet-300 hover:text-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pagination.page >= pagination.pages || loading}
+                      onClick={() => fetchTransactions(pagination.page + 1, search)}
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-violet-300 hover:text-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+                <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-slate-400 focus-within:border-violet-400">
+                  <LuSearch /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Search ${title.toLowerCase()}`} className="w-full bg-transparent text-sm text-slate-700 outline-none sm:w-44" />
+                </label>
+              </div>
             </div>
             {loading ? <div className="p-8 text-center text-sm text-slate-500">Loading {title.toLowerCase()}…</div> : visibleTransactions.length === 0 ? (
               <div className="px-6 py-14 text-center"><span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400"><LuWallet /></span><p className="mt-4 font-medium text-slate-800">{search ? 'No matches found' : `No ${title.toLowerCase()} yet`}</p><p className="mt-1 text-sm text-slate-500">{search ? 'Try a different search term.' : 'Your entries will appear here once you add them.'}</p></div>

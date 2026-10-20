@@ -8,4 +8,9 @@ const ExpenseSchema = new mongoose.Schema ({
     date: { type: Date, default: Date.now },
 }, { timestamps: true});
 
+// Every query filters by user and orders by date, so this compound index
+// turns collection scans into index seeks.
+ExpenseSchema.index({ userId: 1, date: -1 });
+ExpenseSchema.index({ userId: 1, category: 1 });
+
 module.exports = mongoose.model("Expense", ExpenseSchema)

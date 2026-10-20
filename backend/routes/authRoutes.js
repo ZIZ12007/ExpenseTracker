@@ -5,6 +5,7 @@ const {
     registerUser,
     loginUser,
     getUserInfo,
+    refreshSession,
 } = require("../controllers/authController")
 const upload = require("../middleware/uploadMiddleware")
 const fs = require('fs')
@@ -17,6 +18,8 @@ router.post("/register", registerUser)
 router.post("/login", loginUser)    
 
 router.get("/me", protect, getUserInfo)
+
+router.post("/refresh", refreshSession)
 
 router.post("/upload-image", upload.single("image"), async (req, res) => {
     if (!req.file) {

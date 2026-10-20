@@ -1,5 +1,11 @@
 const xlsx = require('xlsx')
 const Income = require('../models/Income');
+const { invalidateDashboard } = require('./dashboardControllers');
+const { listTransactions } = require('../services/transactionList');
+
+// Excel exports are generated in memory, so the row count is capped to keep
+// the response (and the function's memory) bounded.
+const MAX_EXPORT_ROWS = 10000;
 
 // Add Income Source
 exports.addIncome = async (req, res) => {
@@ -22,6 +28,7 @@ exports.addIncome = async (req, res) => {
         })
 
         await newIncome.save();
+        invalidateDashboard(userId);
         res.status(200).json({ newIncome })
     } catch (error) {
         console.error('IncomeController.addIncome error:', error);
@@ -29,18 +36,20 @@ exports.addIncome = async (req, res) => {
     }
 }
 
-// Get Income Sources
+// Get Income Sources (paginated)
 exports.getAllIncome = async (req, res) => {
     // Ensure the user is authenticated
     if (!req.user || !req.user.id) {
         return res.status(401).json({ message: 'Not authorized' })
     }
 
-    const userId = req.user.id
-
     try {
-        const income = await Income.find({ userId }).sort({ date: -1 })
-        res.status(200).json(income)
+        const result = await listTransactions(Income, {
+            userId: req.user.id,
+            query: req.query,
+            searchFields: ['source'],
+        })
+        res.status(200).json(result)
     } catch (error) {
         console.error('IncomeController.getAllIncome error:', error)
         res.status(500).json({ message: 'Server error' })
@@ -57,6 +66,7 @@ exports.deleteIncome = async (req, res) => {
         if (!deletedIncome) {
             return res.status(404).json({ message: 'Income not found' })
         }
+        invalidateDashboard(req.user.id);
         res.json({ message: 'Income deleted successfully' })
     } catch (error) {
         console.error('IncomeController.deleteIncome error:', error)
@@ -69,7 +79,10 @@ exports.downloadIncomeExcel = async (req, res) => {
     const userId = req.user.id
 
     try {
-        const income = await Income.find({ userId }).sort({ date: -1})
+        const income = await Income.find({ userId })
+            .sort({ date: -1 })
+            .limit(MAX_EXPORT_ROWS)
+            .lean()
 
         //Prepare data for excel
         const data = income.map((item) => ({

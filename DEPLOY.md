@@ -175,6 +175,72 @@ Note: pushing a workflow file requires a personal access token with the
 to the function's temp directory and are lost when the instance recycles. Add
 the three Cloudinary variables to make avatars permanent.
 
+## Scaling
+
+### What the app does at scale (tuned for ~200 users)
+
+| Area | What was done |
+| --- | --- |
+| Database | Compound indexes on `{ userId, date }` and `{ userId, source/category }`, created explicitly at startup |
+| Dashboard | 9 separate queries reduced to **2** (one `$facet` aggregation per collection) |
+| Transaction lists | Paginated (`?page=`, `?limit=`, default 50, max 200) with server-side search, in a single query |
+| Response size | Only the fields the UI renders are projected; lists are no longer unbounded |
+| Connection pool | `maxPoolSize: 5` per instance instead of Mongoose's default of 100 |
+| Caching | Short-lived in-memory cache for the dashboard and for the auth lookup, invalidated on writes |
+| Sessions | 7-day access token plus a rotating refresh token, so users stop re-authenticating hourly |
+| Protection | Rate limiting (600 requests / 5 min per IP, 40 / 15 min for auth) and gzip compression |
+
+Measured with 200 simulated users and 60,000 transactions (800 requests, 50 concurrent):
+
+| | With indexes | Without indexes |
+| --- | --- | --- |
+| Throughput | 186 req/s | 57 req/s |
+| p50 latency | 166 ms | 608 ms |
+| p95 latency | 217 ms | 800 ms |
+| Database queries per request | 1.5 | 9 on the dashboard alone (old code) |
+
+### Tuning knobs
+
+All optional - the defaults suit a small production app.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `MONGO_MAX_POOL_SIZE` | `5` | Connections per instance. Keep the total under the cluster's connection limit. |
+| `MONGO_MIN_POOL_SIZE` | `0` | Idle connections to keep open. |
+| `MONGO_WAIT_QUEUE_TIMEOUT_MS` | `5000` | How long a request waits for a free connection. |
+| `MONGO_SERVER_SELECTION_TIMEOUT_MS` | `10000` | How long to wait for a reachable server. |
+| `DASHBOARD_CACHE_TTL_MS` | `15000` | How long a dashboard result is reused. Writes invalidate it immediately. |
+| `USER_CACHE_TTL_MS` | `60000` | How long the authenticated user record is cached. |
+| `CACHE_MAX_ENTRIES` | `500` | Maximum cached entries per instance. |
+| `RATE_LIMIT_API_MAX` | `600` | Requests per 5 minutes per IP. |
+| `RATE_LIMIT_AUTH_MAX` | `40` | Auth attempts per 15 minutes per IP. |
+| `JWT_EXPIRES_IN` | `7d` | Access token lifetime. |
+| `JWT_REFRESH_EXPIRES_IN` | `30d` | Refresh token lifetime. |
+
+### When to upgrade the database
+
+The free Atlas (M0) cluster allows **100 database operations per second** and
+**500 concurrent connections**, and it is a shared single-node cluster with no
+backups.
+
+A realistic 200-user workload (say 20 requests per user per day) uses about
+0.1 operations per second, so the free tier is comfortable. What the free tier
+cannot absorb is a *synchronised burst* - everyone refreshing at the same
+moment - because each request costs 1.5 operations.
+
+Upgrading to **M10 ($5/month)** removes that ceiling and adds a dedicated
+cluster plus automatic backups. Note that a tier cannot be changed in place:
+you create a new cluster and migrate.
+
+### Beyond ~1,000 users
+
+- A read replica for the dashboard aggregations
+- A shared cache (Redis) instead of the in-process one, so all instances share it
+- Moving the Excel export to a background job - it is generated in memory
+- Atlas Search if the transaction list needs full-text search
+
+---
+
 ## Option E: Docker
 
 ```bash

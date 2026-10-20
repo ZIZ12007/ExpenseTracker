@@ -4,6 +4,8 @@ const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
 const mongoose = require("mongoose");
+const compression = require("compression");
+const rateLimit = require("express-rate-limit");
 const connectDB = require("./config/db");
 const { resolveUploadsDir } = require("./config/storage");
 const authRoutes = require("./routes/authRoutes");
@@ -13,10 +15,11 @@ const dashboardRoutes = require("./routes/dashboardRoutes");
 
 const app = express();
 
-// Behind a TLS-terminating proxy (Render, Railway, Heroku, Fly) the request
-// arrives as http. Trusting the proxy makes req.protocol report https, so
-// generated URLs (e.g. uploaded image URLs) are not served as mixed content.
-app.set("trust proxy", true);
+// Behind a TLS-terminating proxy (Render, Railway, Heroku, Fly, Vercel) the
+// request arrives as http. Trusting the first hop makes req.protocol report
+// https (so generated URLs are not served as mixed content) while keeping
+// req.ip as the real client address, which the rate limiter relies on.
+app.set("trust proxy", 1);
 
 app.use(
     cors({
@@ -26,8 +29,41 @@ app.use(
     })
 );
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Compress JSON responses - the dashboard payload is mostly numbers and
+// repeated keys, which gzip well.
+app.use(compression());
+
+// Basic hardening headers.
+app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    next();
+});
+
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+
+// Rate limiting. The store is per instance, so on serverless hosts this
+// bounds each instance rather than the whole account - enough to stop a
+// runaway client without needing a shared store.
+const apiLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    limit: Number(process.env.RATE_LIMIT_API_MAX || 600),
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    validate: { trustProxy: false, xForwardedForHeader: false },
+    message: { message: "Too many requests. Please slow down and try again shortly." },
+});
+
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: Number(process.env.RATE_LIMIT_AUTH_MAX || 40),
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    validate: { trustProxy: false, xForwardedForHeader: false },
+    message: { message: "Too many authentication attempts. Please try again later." },
+});
 
 connectDB();
 
@@ -48,6 +84,11 @@ app.use("/api/v1", async (req, res, next) => {
     }
     next();
 });
+
+app.use("/api/v1/auth/login", authLimiter);
+app.use("/api/v1/auth/register", authLimiter);
+app.use("/api/v1/auth/refresh", authLimiter);
+app.use("/api/v1", apiLimiter);
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/income", incomeRoutes);

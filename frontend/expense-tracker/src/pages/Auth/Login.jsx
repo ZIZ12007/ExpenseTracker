@@ -42,10 +42,11 @@ const Login = () => {
         email: email.trim(),
         password,
       });
-      const { token, user } = response.data;
+      const { token, refreshToken, user } = response.data;
 
       if (token) {
         localStorage.setItem("token", token);
+        if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
         updateUser(user)
         navigate("/dashboard")
       }

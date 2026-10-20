@@ -1,5 +1,11 @@
 const xlsx = require('xlsx');
 const Expense = require('../models/Expense');
+const { invalidateDashboard } = require('./dashboardControllers');
+const { listTransactions } = require('../services/transactionList');
+
+// Excel exports are generated in memory, so the row count is capped to keep
+// the response (and the function's memory) bounded.
+const MAX_EXPORT_ROWS = 10000;
 
 // Add Expense Source
 exports.addExpense = async (req, res) => {
@@ -28,25 +34,30 @@ exports.addExpense = async (req, res) => {
         })
 
         await newExpense.save();
+        invalidateDashboard(userId);
         res.status(200).json({ newExpense })
     } catch (error) {
+        console.error('expenseController.addExpense error:', error)
         res.status(500).json({ message: 'Server error' })
     }
 }
 
-// Get Expense Sources
+// Get Expense Sources (paginated)
 exports.getAllExpense = async (req, res) => {
     // Ensure the user is authenticated
     if (!req.user || !req.user.id) {
         return res.status(401).json({ message: 'Not authorized' })
     }
 
-    const userId = req.user.id
-
     try {
-        const expense = await Expense.find({ userId }).sort({ date: -1 })
-        res.status(200).json(expense)
+        const result = await listTransactions(Expense, {
+            userId: req.user.id,
+            query: req.query,
+            searchFields: ['category'],
+        })
+        res.status(200).json(result)
     } catch (error) {
+        console.error('expenseController.getAllExpense error:', error)
         res.status(500).json({ message: 'Server error' })
     }
 }
@@ -61,8 +72,10 @@ exports.deleteExpense = async (req, res) => {
         if (!deletedExpense) {
             return res.status(404).json({ message: 'Expense not found' })
         }
+        invalidateDashboard(req.user.id);
         res.json({ message: 'Expense deleted successfully' })
     } catch (error) {
+        console.error('expenseController.deleteExpense error:', error)
         res.status(500).json({ message: 'Server Error' })
     }
 };
@@ -72,7 +85,10 @@ exports.downloadExpenseExcel = async (req, res) => {
     const userId = req.user.id
 
     try {
-        const expense = await Expense.find({ userId }).sort({ date: -1})
+        const expense = await Expense.find({ userId })
+            .sort({ date: -1 })
+            .limit(MAX_EXPORT_ROWS)
+            .lean()
 
         //Prepare data for excel
         const data = expense.map((item) => ({
