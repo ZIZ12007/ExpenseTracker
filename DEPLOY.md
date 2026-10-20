@@ -154,6 +154,23 @@ dashboard):
 | `NODE_ENV` | `production` |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | optional, but see below |
 
+### Automatic deployments
+
+There are two ways to deploy on every push to `main`.
+
+**Option 1 - the Vercel GitHub App (recommended, one click).**
+Install the app for the repository at <https://github.com/apps/vercel>, then
+connect the repo in the Vercel dashboard under **Settings → Git → Connect
+Repository**. Every push to `main` then deploys automatically, and every pull
+request gets a preview URL.
+
+**Option 2 - GitHub Actions.**
+Copy `deploy/vercel-github-actions.yml` to `.github/workflows/deploy.yml` and
+push it. The repository already has the three secrets it needs
+(`VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `VERCEL_TOKEN`).
+Note: pushing a workflow file requires a personal access token with the
+`workflow` scope; a token without it is rejected by GitHub.
+
 **Uploads:** Vercel's filesystem is read-only, so uploaded images fall back
 to the function's temp directory and are lost when the instance recycles. Add
 the three Cloudinary variables to make avatars permanent.
