@@ -118,7 +118,7 @@ const Home = () => {
         {!token && <div className='rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800'>Sign in to load your personal dashboard data.</div>}
         {error && <div role='alert' className='flex items-center justify-between gap-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'><span>{error}</span><button onClick={fetchDashboardData} className='shrink-0 font-semibold underline'>Retry</button></div>}
 
-        <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
+        <div className='grid grid-cols-1 gap-4 md:grid-cols-3' data-tour="summary">
           {summaryCards.map((card) => (
             <InfoCard
               key={card.label}

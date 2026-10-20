@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 /**
  * A guided first-run tour.
@@ -6,6 +7,9 @@ import { useEffect, useLayoutEffect, useState } from 'react';
  * A spotlight is cut out of an overlay around the element being described,
  * with a pointing finger and a small card of instructions. The tour can be
  * skipped at any point, and it remembers that it has been seen.
+ *
+ * A step may point at a different page: the tour moves there first, then
+ * highlights the element.
  */
 const STEPS = [
     {
@@ -17,21 +21,25 @@ const STEPS = [
         title: 'Your money at a glance',
         body: 'Your balance, income and expenses are always on the dashboard. The charts break your spending down by category and by day.',
         target: '[data-tour="summary"]',
+        path: '/dashboard',
     },
     {
         title: 'Add what you spend',
         body: 'Record an expense or some income in a couple of taps. The totals update straight away, and you can export everything to Excel.',
         target: '[data-tour="add"]',
+        path: '/expense',
     },
     {
         title: 'Plan your allowance',
         body: 'Set a daily allowance, list what you always spend on - transport, data, rent - and upload your school timetable to get meal suggestions that fit what is left.',
         target: '[data-tour="budget"]',
+        path: '/dashboard',
     },
     {
         title: 'Make it yours',
         body: 'Change your username, pick your currency, update your allowance and change your password in Settings.',
         target: '[data-tour="settings"]',
+        path: '/dashboard',
     },
 ];
 
@@ -40,29 +48,39 @@ const PADDING = 8;
 const Onboarding = ({ onComplete, onSkip }) => {
     const [step, setStep] = useState(0);
     const [rect, setRect] = useState(null);
+    const navigate = useNavigate();
+    const location = useLocation();
 
     const current = STEPS[step];
+
+    // Move to the page the step points at, if it is not the current one.
+    useEffect(() => {
+        if (current?.path && current.path !== location.pathname) {
+            navigate(current.path);
+        }
+    }, [step, current, navigate, location.pathname]);
 
     useLayoutEffect(() => {
         if (!current?.target) {
             setRect(null);
             return;
         }
-        const element = document.querySelector(current.target);
-        if (!element) {
-            setRect(null);
-            return;
-        }
-        element.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        const update = () => setRect(element.getBoundingClientRect());
-        update();
-        window.addEventListener('resize', update);
-        window.addEventListener('scroll', update, true);
-        return () => {
-            window.removeEventListener('resize', update);
-            window.removeEventListener('scroll', update, true);
-        };
-    }, [step, current]);
+        // Give the page a moment to render the element being pointed at.
+        const timer = setTimeout(() => {
+            const element = document.querySelector(current.target);
+            if (!element) {
+                setRect(null);
+                return;
+            }
+            element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            const update = () => setRect(element.getBoundingClientRect());
+            update();
+            window.addEventListener('resize', update);
+            window.addEventListener('scroll', update, true);
+            setTimeout(() => window.removeEventListener('scroll', update, true), 1500);
+        }, 350);
+        return () => clearTimeout(timer);
+    }, [step, current, location.pathname]);
 
     useEffect(() => {
         const onKey = (event) => {
