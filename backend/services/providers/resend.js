@@ -8,7 +8,7 @@ const ENDPOINT = 'https://api.resend.com/emails';
 
 const isConfigured = () => Boolean(process.env.RESEND_API_KEY);
 
-const from = () => process.env.MAIL_FROM || 'Expense Tracker <onboarding@resend.dev>';
+const from = () => process.env.MAIL_FROM || 'Expenza <onboarding@resend.dev>';
 
 const send = async ({ to, subject, html, text }) => {
     if (!isConfigured()) {

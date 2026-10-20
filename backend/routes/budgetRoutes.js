@@ -1,6 +1,6 @@
 const express = require("express")
 const { protect } = require("../middleware/authMiddleware")
-const upload = require("../middleware/uploadMiddleware")
+const { timetableUpload } = require("../middleware/uploadMiddleware")
 const {
     getBudget,
     addRecurring,
@@ -16,7 +16,7 @@ const router = express.Router()
 router.get("/", protect, getBudget)
 router.post("/recurring", protect, addRecurring)
 router.delete("/recurring/:id", protect, deleteRecurring)
-router.post("/timetable", protect, upload.single("timetable"), uploadTimetable)
+router.post("/timetable", protect, timetableUpload.single("timetable"), uploadTimetable)
 router.put("/timetable/:id", protect, updateTimetable)
 router.delete("/timetable/:id", protect, deleteTimetable)
 router.post("/recommendations", protect, getRecommendations)

@@ -21,10 +21,13 @@ const MODEL_CHAIN = (
 
 const isConfigured = () => Boolean(process.env.GEMINI_API_KEY);
 
-const callModel = async (model, { prompt, image, json = true }) => {
+const callModel = async (model, { prompt, image, pdf, json = true }) => {
     const parts = [{ text: prompt }];
     if (image) {
         parts.push({ inline_data: { mime_type: image.mimeType, data: image.base64 } });
+    }
+    if (pdf) {
+        parts.push({ inline_data: { mime_type: 'application/pdf', data: pdf.base64 } });
     }
 
     const response = await fetch(`${API_BASE}/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
@@ -101,28 +104,40 @@ const parseJson = (text) => {
 };
 
 /**
- * Reads a school timetable from a photo and returns the meals for each day.
+ * Reads a school timetable from a photo, a PDF or an HTML file.
+ *
+ * Photos and PDFs go to the model as they are. HTML is turned into readable
+ * text first, because a timetable is a table and the model reads a table far
+ * more accurately as text.
  */
-const readTimetable = async ({ image, currency = 'NGN' }) => {
+const readTimetable = async ({ image, pdf, text, currency = 'NGN' }) => {
     if (!isConfigured()) {
         throw new Error('The AI service is not configured');
     }
 
-    const prompt = `You are reading a school food timetable from a photograph.
+    const prompt = `You are reading a school food timetable.
+${image ? 'The timetable is in the attached photograph.' : ''}
+${pdf ? 'The timetable is in the attached PDF.' : ''}
+${text ? `The timetable was extracted from a file and is below:\n"""\n${text}\n"""` : ''}
 Return JSON only, in exactly this shape:
 {
   "meals": [
     { "day": "Monday", "breakfast": "...", "lunch": "...", "supper": "...", "estimatedCost": 0 }
-  ]
+  ],
+  "notes": "anything worth saying about the timetable"
 }
 Rules:
 - "day" is the weekday name.
 - Each meal is the dish as written on the timetable, or "" if that day has no such meal.
 - "estimatedCost" is what one portion of that day's meals would cost in ${currency}, as a number.
-- If the image is not a timetable, return { "meals": [], "notes": "could not be read" }.`;
+- If the file is not a timetable, return { "meals": [], "notes": "could not be read" }.`;
 
-    const text = await callGemini({ prompt, image, json: true });
-    const parsed = parseJson(text.text);
+    const options = { prompt, json: true };
+    if (image) options.image = image;
+    if (pdf) options.pdf = pdf;
+
+    const result = await callGemini(options);
+    const parsed = parseJson(result.text);
     const meals = Array.isArray(parsed.meals) ? parsed.meals : [];
     return {
         meals: meals

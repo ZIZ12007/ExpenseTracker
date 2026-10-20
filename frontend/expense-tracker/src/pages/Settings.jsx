@@ -282,7 +282,7 @@ const Settings = () => {
 
                 <p className="flex items-center gap-2 text-xs text-slate-400">
                     <LuSparkles className="text-violet-500" />
-                    Tip: set your daily allowance in Settings and Expense Tracker will work out what is left for food each day.
+                    Tip: set your daily allowance in Settings and Expenza will work out what is left for food each day.
                 </p>
 
                 <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">

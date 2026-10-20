@@ -1,4 +1,4 @@
-# Deploying ExpenseTracker
+# Deploying Expenza
 
 A MERN app: an Express 5 + MongoDB API in `backend/`, and a React 19 + Vite
 frontend in `frontend/expense-tracker/`.
@@ -36,7 +36,7 @@ verified - no domain purchase needed.
    → click the verification link in the email Brevo sends.
 3. **SMTP & API** → **API Keys** → **Generate a new API key** → copy it.
 4. Set `BREVO_API_KEY` and `BREVO_SENDER_EMAIL` (or put both in `MAIL_FROM`
-   as `Expense Tracker <you@example.com>`).
+   as `Expenza <you@example.com>`).
 
 **Resend** is also supported: 3,000 emails a month, but a new account can
 only send to its own address until a domain is verified. Set `MAIL_PROVIDER`
@@ -123,12 +123,12 @@ key the app uses its own rule based planner, so the feature never breaks.
 This repo has no `.git` folder, so push it to your own GitHub account:
 
 ```bash
-cd ExpenseTracker
+cd Expenza
 git init
 git add .
-git commit -m "Prepare ExpenseTracker for deployment"
+git commit -m "Prepare Expenza for deployment"
 git branch -M main
-git remote add origin https://github.com/<you>/ExpenseTracker.git
+git remote add origin https://github.com/<you>/Expenza.git
 git push -u origin main
 ```
 

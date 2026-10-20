@@ -14,7 +14,7 @@ const AuthLayout = ({ children }) => {
       {/* LEFT */}
       <div className="w-full md:w-[60vw] px-12 pt-8 pb-12 flex flex-col justify-center">
         <h2 className="text-lg font-medium text-black">
-          Expense Tracker
+          Expenza
         </h2>
         {children}
       </div>

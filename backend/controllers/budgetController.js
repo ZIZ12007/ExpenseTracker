@@ -6,6 +6,7 @@ const Timetable = require('../models/Timetable');
 const RecurringExpense = require('../models/RecurringExpense');
 const budget = require('../services/budget');
 const ai = require('../services/ai');
+const { htmlToText } = require('../services/htmlText');
 const { resolveUploadsDir } = require('../config/storage');
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -134,16 +135,12 @@ exports.deleteRecurring = async (req, res) => {
 
 /**
  * POST /api/v1/budget/timetable
- * Uploads a photo of the school timetable and reads the meals from it.
+ * Uploads a school timetable - a photo, a PDF or an HTML file - and reads the
+ * meals from it.
  */
 exports.uploadTimetable = async (req, res) => {
     if (!req.file) {
-        return res.status(400).json({ message: 'Please choose an image of your timetable.' });
-    }
-
-    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'];
-    if (!allowed.includes(req.file.mimetype)) {
-        return res.status(400).json({ message: 'Upload a photo (JPG, PNG or WebP) of your timetable.' });
+        return res.status(400).json({ message: 'Please choose a photo, a PDF or an HTML file of your timetable.' });
     }
 
     try {
@@ -151,6 +148,8 @@ exports.uploadTimetable = async (req, res) => {
         const uploadsDir = resolveUploadsDir();
         const storedName = req.file.filename;
         const storedPath = path.join(uploadsDir, storedName);
+        const extension = path.extname(req.file.originalname || '').toLowerCase();
+        const bytes = fs.readFileSync(storedPath);
 
         const timetable = await Timetable.create({
             userId: req.user._id,
@@ -167,18 +166,17 @@ exports.uploadTimetable = async (req, res) => {
             return res.status(201).json({ timetable, message: 'Uploaded, but the AI is not configured so the meals were not read.' });
         }
 
-        // Images are read directly; PDFs are left for the user to confirm.
-        if (req.file.mimetype === 'application/pdf') {
-            timetable.status = 'failed';
-            timetable.notes = 'PDFs are not read automatically yet - upload a photo of the timetable instead.';
-            await timetable.save();
-            return res.status(201).json({ timetable, message: timetable.notes });
-        }
+        const isHtml = extension === '.html' || extension === '.htm' || /html/.test(req.file.mimetype || '');
+        const isPdf = extension === '.pdf' || /pdf/.test(req.file.mimetype || '');
 
         try {
-            const bytes = fs.readFileSync(storedPath);
             const extracted = await ai.readTimetable({
-                image: { base64: bytes.toString('base64'), mimeType: req.file.mimetype },
+                // Images and PDFs go to the model as they are.
+                image: !isHtml && !isPdf ? { base64: bytes.toString('base64'), mimeType: req.file.mimetype } : undefined,
+                pdf: isPdf ? { base64: bytes.toString('base64') } : undefined,
+                // HTML is turned into text here, because a table reads far
+                // better as text than as markup.
+                text: isHtml ? htmlToText(bytes.toString('utf8')) : undefined,
                 currency: req.user.currency,
             });
             timetable.meals = extracted.meals;
@@ -189,7 +187,7 @@ exports.uploadTimetable = async (req, res) => {
         } catch (aiError) {
             console.error('Timetable extraction failed:', aiError.message);
             timetable.status = 'failed';
-            timetable.notes = 'The timetable could not be read. Try a clearer, straight-on photo.';
+            timetable.notes = 'The timetable could not be read. Try a clearer photo, or a PDF or HTML file.';
             await timetable.save();
         }
 

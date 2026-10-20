@@ -37,7 +37,7 @@ const layout = (title, bodyHtml) => `
   <h1 style="font-size:20px;margin:0 0 16px">${escapeHtml(title)}</h1>
   ${bodyHtml}
   <p style="margin-top:28px;font-size:12px;color:#64748b">
-    This message was sent by Expense Tracker. If you did not expect it, you can ignore this email.
+    This message was sent by Expenza. If you did not expect it, you can ignore this email.
   </p>
 </div>`;
 
@@ -65,7 +65,7 @@ const sendSafely = async (sendEmail) => {
 };
 
 const sendVerificationEmail = async ({ to, name, link }) => {
-    const subject = 'Verify your Expense Tracker account';
+    const subject = 'Verify your Expenza account';
     const html = layout('Verify your email', `
       <p style="font-size:15px;line-height:1.6">Hi ${escapeHtml(name || 'there')},</p>
       <p style="font-size:15px;line-height:1.6">Confirm your email address to finish setting up your account.</p>
@@ -79,7 +79,7 @@ const sendVerificationEmail = async ({ to, name, link }) => {
 };
 
 const sendPasswordResetEmail = async ({ to, name, link }) => {
-    const subject = 'Reset your Expense Tracker password';
+    const subject = 'Reset your Expenza password';
     const html = layout('Reset your password', `
       <p style="font-size:15px;line-height:1.6">Hi ${escapeHtml(name || 'there')},</p>
       <p style="font-size:15px;line-height:1.6">We received a request to reset your password. This link works for 60 minutes.</p>
@@ -88,13 +88,13 @@ const sendPasswordResetEmail = async ({ to, name, link }) => {
       </p>
       <p style="font-size:13px;color:#475569">If you did not ask for this, you can ignore this email - your password will not change.</p>
     `);
-    const text = `Reset your Expense Tracker password: ${link}`;
+    const text = `Reset your Expenza password: ${link}`;
     return send({ to, subject, html, text });
 };
 
 const sendMagicLinkEmail = async ({ to, name, link, isNewAccount = false }) => {
-    const subject = 'Your sign in link for Expense Tracker';
-    const html = layout('Sign in to Expense Tracker', `
+    const subject = 'Your sign in link for Expenza';
+    const html = layout('Sign in to Expenza', `
       <p style="font-size:15px;line-height:1.6">Hi ${escapeHtml(name || 'there')},</p>
       <p style="font-size:15px;line-height:1.6">
         ${isNewAccount
@@ -102,11 +102,11 @@ const sendMagicLinkEmail = async ({ to, name, link, isNewAccount = false }) => {
             : 'Use the button below to sign in. No password needed.'}
       </p>
       <p style="margin:24px 0">
-        <a href="${escapeHtml(link)}" style="background:#7c3aed;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block">Sign in to Expense Tracker</a>
+        <a href="${escapeHtml(link)}" style="background:#7c3aed;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block">Sign in to Expenza</a>
       </p>
       <p style="font-size:13px;color:#475569">This link works once and expires in 15 minutes.<br>If the button does not work, paste this link into your browser:<br><a href="${escapeHtml(link)}" style="color:#7c3aed">${escapeHtml(link)}</a></p>
     `);
-    const text = `Sign in to Expense Tracker: ${link}`;
+    const text = `Sign in to Expenza: ${link}`;
     return send({ to, subject, html, text });
 };
 
@@ -114,10 +114,10 @@ const sendMagicLinkEmail = async ({ to, name, link, isNewAccount = false }) => {
  * Sent every time somebody signs in, so the account holder knows.
  */
 const sendSignInEmail = async ({ to, name, when, device, ip }) => {
-    const subject = 'New sign in to your Expense Tracker account';
+    const subject = 'New sign in to your Expenza account';
     const html = layout('A new sign in', `
       <p style="font-size:15px;line-height:1.6">Hi ${escapeHtml(name || 'there')},</p>
-      <p style="font-size:15px;line-height:1.6">Your Expense Tracker account was just signed in to.</p>
+      <p style="font-size:15px;line-height:1.6">Your Expenza account was just signed in to.</p>
       <table style="margin:20px 0;font-size:14px;border-collapse:collapse">
         <tr><td style="padding:4px 12px 4px 0;color:#64748b">When</td><td style="padding:4px 0;color:#0f172a">${escapeHtml(when)}</td></tr>
         <tr><td style="padding:4px 12px 4px 0;color:#64748b">Device</td><td style="padding:4px 0;color:#0f172a">${escapeHtml(device || 'unknown')}</td></tr>
@@ -125,7 +125,7 @@ const sendSignInEmail = async ({ to, name, when, device, ip }) => {
       </table>
       <p style="font-size:14px;color:#475569">If this was not you, change your password straight away and sign out of anything you do not recognise.</p>
     `);
-    const text = `Your Expense Tracker account was signed in to on ${when}. If this was not you, change your password.`;
+    const text = `Your Expenza account was signed in to on ${when}. If this was not you, change your password.`;
     return send({ to, subject, html, text });
 };
 
@@ -133,11 +133,11 @@ const sendSignInEmail = async ({ to, name, when, device, ip }) => {
  * Sent when the password is changed, so the change cannot happen silently.
  */
 const sendPasswordChangedEmail = async ({ to, name, when }) => {
-    const subject = 'Your Expense Tracker password was changed';
+    const subject = 'Your Expenza password was changed';
     const html = layout('Your password was changed', `
       <p style="font-size:15px;line-height:1.6">Hi ${escapeHtml(name || 'there')},</p>
       <p style="font-size:15px;line-height:1.6">
-        The password on your Expense Tracker account was changed on ${escapeHtml(when)}.
+        The password on your Expenza account was changed on ${escapeHtml(when)}.
       </p>
       <p style="font-size:15px;line-height:1.6">
         If that was not you, reset your password now and contact us.
@@ -146,7 +146,7 @@ const sendPasswordChangedEmail = async ({ to, name, when }) => {
         <a href="${escapeHtml(`${frontendUrl()}/forgot-password`)}" style="background:#7c3aed;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block">Reset my password</a>
       </p>
     `);
-    const text = `Your Expense Tracker password was changed on ${when}. If this was not you, reset your password.`;
+    const text = `Your Expenza password was changed on ${when}. If this was not you, reset your password.`;
     return send({ to, subject, html, text });
 };
 
@@ -154,17 +154,17 @@ const sendPasswordChangedEmail = async ({ to, name, when }) => {
  * Sent when the profile or settings are changed.
  */
 const sendProfileUpdatedEmail = async ({ to, name, changes, when }) => {
-    const subject = 'Your Expense Tracker profile was updated';
+    const subject = 'Your Expenza profile was updated';
     const rows = changes.map((change) => `<li style="margin:4px 0">${escapeHtml(change)}</li>`).join('');
     const html = layout('Your profile was updated', `
       <p style="font-size:15px;line-height:1.6">Hi ${escapeHtml(name || 'there')},</p>
-      <p style="font-size:15px;line-height:1.6">Your Expense Tracker profile was updated on ${escapeHtml(when)}.</p>
+      <p style="font-size:15px;line-height:1.6">Your Expenza profile was updated on ${escapeHtml(when)}.</p>
       ${rows ? `<ul style="margin:16px 0 0 18px;font-size:15px;line-height:1.7">${rows}</ul>` : ''}
       <p style="font-size:14px;color:#475569;margin-top:20px">
         If you did not make this change, reset your password and contact us straight away.
       </p>
     `);
-    const text = `Your Expense Tracker profile was updated on ${when}. ${changes.join('; ')}`;
+    const text = `Your Expenza profile was updated on ${when}. ${changes.join('; ')}`;
     return send({ to, subject, html, text });
 };
 

@@ -19,13 +19,13 @@ const parseFrom = (value) => {
     if (match) {
         return { name: match[1].trim(), email: match[2].trim() };
     }
-    return { name: 'Expense Tracker', email: String(value || '').trim() };
+    return { name: 'Expenza', email: String(value || '').trim() };
 };
 
 const sender = () => {
     const from = parseFrom(process.env.MAIL_FROM || '');
     return {
-        name: process.env.MAIL_FROM_NAME || from.name || 'Expense Tracker',
+        name: process.env.MAIL_FROM_NAME || from.name || 'Expenza',
         email: process.env.BREVO_SENDER_EMAIL || from.email,
     };
 };

@@ -1,6 +1,6 @@
-# ExpenseTracker
+# Expenza
 
-A full-stack expense tracker:
+A full-stack Expenza:
 
 - **`backend/`** — Express 5 + Mongoose (MongoDB) REST API with JWT auth
 - **`frontend/expense-tracker/`** — React 19 + Vite 8 + Tailwind CSS 4 SPA

@@ -9,6 +9,7 @@ const rateLimit = require("express-rate-limit");
 const { sharedLimit, byIp, byAccount } = require("./middleware/sharedRateLimit");
 const connectDB = require("./config/db");
 const { resolveUploadsDir } = require("./config/storage");
+const { checkSecrets } = require("./config/securityCheck");
 const authRoutes = require("./routes/authRoutes");
 const incomeRoutes = require("./routes/incomeRoutes");
 const expenseRoutes = require("./routes/expenseRoutes");
@@ -17,6 +18,9 @@ const userRoutes = require("./routes/userRoutes");
 const budgetRoutes = require("./routes/budgetRoutes");
 
 const app = express();
+
+// Warn about weak or missing secrets before anything else happens.
+checkSecrets();
 
 // Behind a TLS-terminating proxy (Render, Railway, Heroku, Fly, Vercel) the
 // request arrives as http. Trusting the first hop makes req.protocol report
@@ -132,8 +136,20 @@ app.use("/api/v1/budget", budgetRoutes);
 // the system temp directory.
 const uploadsDir = resolveUploadsDir();
 
-// Serve uploaded images statically
-app.use("/uploads", express.static(uploadsDir));
+// Serve uploaded files.
+//
+// Images are shown inside the app, but anything else - a PDF, an HTML file -
+// is downloaded rather than rendered, and a sandbox policy is applied so an
+// uploaded file can never run in the app's own origin.
+const inlineImage = /\.(png|jpe?g|gif|webp)$/i;
+app.use("/uploads", (req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Security-Policy", "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'");
+    if (!inlineImage.test(req.path)) {
+        res.setHeader("Content-Disposition", "attachment");
+    }
+    return express.static(uploadsDir)(req, res, next);
+});
 
 // Serve frontend static files in production
 const frontendDist = path.join(__dirname, "..", "frontend", "expense-tracker", "dist");
@@ -157,6 +173,13 @@ app.get("/{*splat}", (req, res, next) => {
 // Global error handler
 app.use((err, req, res, next) => {
     console.error(err);
+    // A rejected upload is the caller's mistake, not a server failure.
+    if (err && (err.name === 'MulterError' || err.status === 400)) {
+        const message = err.code === 'LIMIT_FILE_SIZE'
+            ? 'That file is too large.'
+            : (err.message || 'That file could not be uploaded.');
+        return res.status(400).json({ message });
+    }
     res.status(err.status || 500).json({ message: err.message || "Server error" });
 });
 

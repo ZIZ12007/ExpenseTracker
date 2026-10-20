@@ -14,7 +14,7 @@ import { getTourStep, setTourStep, resetTourStep } from '../utils/onboardingStat
  */
 const STEPS = [
     {
-        title: 'Welcome to Expense Tracker 👋',
+        title: 'Welcome to Expenza 👋',
         body: 'This short tour shows you the three things that matter: tracking what you spend, planning your allowance, and the settings you can change.',
         target: null,
     },
