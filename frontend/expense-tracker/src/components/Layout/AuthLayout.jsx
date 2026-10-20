@@ -1,6 +1,7 @@
 import React from 'react';
 import CARD_1 from '@/assets/images/card1.png';
 import { LuTrendingUpDown } from 'react-icons/lu';
+import { formatMoney } from '../../utils/currency';
 
 const AuthLayout = ({ children }) => {
   return (
@@ -31,7 +32,7 @@ const AuthLayout = ({ children }) => {
           <StatsInfoCard
             icon={<LuTrendingUpDown />}
             label="Track Your Income & Expenses"
-            value="430,000"
+            value={formatMoney(430000).replace(/\.00$/, '')}
             color="bg-purple-600"
           />
         </div>
@@ -57,7 +58,7 @@ const StatsInfoCard = ({ icon, label, value, color }) => {
       </div>
       <div>
         <h6 className="text-xs text-gray-500 mb-1">{label}</h6>
-        <span className="text-[20px]">${value}</span>
+        <span className="text-[20px]">{value}</span>
       </div>
     </div>
   );

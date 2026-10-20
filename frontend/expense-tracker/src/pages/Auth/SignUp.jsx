@@ -141,6 +141,7 @@ const SignUp = () => {
                 label="Username (optional)"
                 placeholder="e.g. ada.b"
                 type="text"
+                required={false}
               />
             </div>
           
