@@ -13,6 +13,8 @@ export const API_PATHS = {
         RESET_PASSWORD: "/api/v1/auth/reset-password",
         GOOGLE: "/api/v1/auth/google",
         GOOGLE_STATUS: "/api/v1/auth/google/status",
+        MAGIC_LINK: "/api/v1/auth/magic-link",
+        MAGIC_LINK_VERIFY: "/api/v1/auth/magic-link/verify",
     },
     USER: {
         PROFILE: "/api/v1/user/profile",

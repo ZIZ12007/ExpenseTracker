@@ -19,9 +19,11 @@ const issueToken = (user, field, ttlMs) => {
 
 const VERIFY_TTL_MS = 24 * 60 * 60 * 1000;        // 24 hours
 const RESET_TTL_MS = 60 * 60 * 1000;             // 1 hour
+const LOGIN_TTL_MS = 15 * 60 * 1000;             // 15 minutes
 
 const issueVerificationToken = (user) => issueToken(user, 'verifyToken', VERIFY_TTL_MS);
 const issueResetToken = (user) => issueToken(user, 'resetToken', RESET_TTL_MS);
+const issueLoginToken = (user) => issueToken(user, 'loginToken', LOGIN_TTL_MS);
 
 const findByToken = (User, field, token) =>
     User.findOne({
@@ -54,6 +56,7 @@ const verifyState = (state) => {
 module.exports = {
     issueVerificationToken,
     issueResetToken,
+    issueLoginToken,
     findByToken,
     clearToken,
     hashToken,
@@ -61,4 +64,5 @@ module.exports = {
     verifyState,
     VERIFY_TTL_MS,
     RESET_TTL_MS,
+    LOGIN_TTL_MS,
 };

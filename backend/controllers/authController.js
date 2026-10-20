@@ -4,6 +4,7 @@ const mailer = require('../services/mailer');
 const {
     issueVerificationToken,
     issueResetToken,
+    issueLoginToken,
     findByToken,
     clearToken,
     signState,
@@ -22,6 +23,9 @@ const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo';
 
 const frontendUrl = () => process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
+// Where the API is reachable from the outside world. On a single service
+// deploy this is the same address as the frontend.
+const apiUrl = () => process.env.PUBLIC_URL || process.env.FRONTEND_URL || frontendUrl();
 
 const publicUser = (user) => {
     const result = user.toObject()
@@ -378,6 +382,104 @@ exports.googleCallback = async (req, res) => {
     } catch (err) {
         console.error('authController.googleCallback error:', err);
         res.redirect(`${frontendUrl()}/login?error=${encodeURIComponent('Google sign in failed. Please try again.')}`);
+    }
+};
+
+// SIGN IN WITH AN EMAIL LINK - send a one time link
+exports.requestMagicLink = async (req, res) => {
+    const { email } = req.body || {};
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    if (!normalizedEmail) {
+        return res.status(400).json({ message: 'Please provide your email address.' });
+    }
+
+    try {
+        let user = await User.findOne({ email: normalizedEmail });
+        const isNewAccount = !user;
+
+        if (!user) {
+            // Signing up and signing in are the same action with a link.
+            user = await User.create({
+                fullName: normalizedEmail.split('@')[0].replace(/[._-]+/g, ' '),
+                email: normalizedEmail,
+                password: undefined,
+                provider: 'email',
+                emailVerified: true,   // the link proves they own the address
+            });
+        }
+
+        const token = issueLoginToken(user);
+        await user.save();
+
+        try {
+            await mailer.sendMagicLinkEmail({
+                to: user.email,
+                name: user.fullName,
+                link: `${apiUrl()}/api/v1/auth/magic-link?token=${encodeURIComponent(token)}`,
+                isNewAccount,
+            });
+        } catch (err) {
+            console.error('Could not send the sign in link:', err.message);
+        }
+
+        res.status(200).json({ message: 'If that address can receive mail, a sign in link is on its way.' });
+    } catch (err) {
+        console.error('authController.requestMagicLink error:', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// SIGN IN WITH AN EMAIL LINK - the link itself
+exports.magicLinkEntry = async (req, res) => {
+    const { token } = req.query || {};
+    if (!token) {
+        return res.redirect(`${frontendUrl()}/login?error=${encodeURIComponent('That sign in link is invalid.')}`);
+    }
+
+    try {
+        const user = await findByToken(User, 'loginToken', token);
+        if (!user) {
+            return res.redirect(`${frontendUrl()}/login?error=${encodeURIComponent('That sign in link is invalid or has expired.')}`);
+        }
+
+        clearToken(user, 'loginToken');
+        user.emailVerified = true;
+        await user.save();
+
+        const tokens = issueTokens(user._id);
+        const fragment = new URLSearchParams({ token: tokens.token, refreshToken: tokens.refreshToken });
+        res.redirect(`${frontendUrl()}/auth/callback#${fragment.toString()}`);
+    } catch (err) {
+        console.error('authController.magicLinkEntry error:', err);
+        res.redirect(`${frontendUrl()}/login?error=${encodeURIComponent('That sign in link could not be used.')}`);
+    }
+};
+
+// SIGN IN WITH AN EMAIL LINK - exchange the link for a session
+exports.verifyMagicLink = async (req, res) => {
+    const { token } = req.body || {};
+    if (!token) {
+        return res.status(400).json({ message: 'A sign in token is required.' });
+    }
+
+    try {
+        const user = await findByToken(User, 'loginToken', token);
+        if (!user) {
+            return res.status(400).json({ message: 'This sign in link is invalid or has expired.' });
+        }
+
+        clearToken(user, 'loginToken');
+        user.emailVerified = true;
+        await user.save();
+
+        res.status(200).json({
+            id: user._id,
+            user: publicUser(user),
+            ...issueTokens(user._id),
+        });
+    } catch (err) {
+        console.error('authController.verifyMagicLink error:', err);
+        res.status(500).json({ message: 'Server error' });
     }
 };
 

@@ -15,6 +15,10 @@ const Login = () => {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [linkEmail, setLinkEmail] = useState("");
+  const [linkMessage, setLinkMessage] = useState("");
+  const [linkError, setLinkError] = useState("");
+  const [isSendingLink, setIsSendingLink] = useState(false);
 
   const { updateUser } = useContext(UserContext)
 
@@ -29,6 +33,21 @@ const Login = () => {
 
   const signInWithGoogle = () => {
     window.location.href = `${API_PATHS.AUTH.GOOGLE}?redirectTo=${encodeURIComponent('/dashboard')}`;
+  };
+
+  const handleMagicLink = async (event) => {
+    event.preventDefault();
+    setIsSendingLink(true);
+    setLinkError('');
+    setLinkMessage('');
+    try {
+      const response = await axiosInstance.post(API_PATHS.AUTH.MAGIC_LINK, { email: linkEmail.trim() });
+      setLinkMessage(response.data.message || 'Check your email for a sign in link.');
+    } catch (requestError) {
+      setLinkError(requestError.response?.data?.message || 'The link could not be sent.');
+    } finally {
+      setIsSendingLink(false);
+    }
   };
 
   // Handle Login Form Submit
@@ -144,6 +163,32 @@ const Login = () => {
             </Link>
           </p>
         </form>
+
+        <div className="mt-6 rounded-2xl border border-slate-100 bg-white/70 p-4">
+          <p className="text-[13px] font-medium text-slate-700">Or sign in without a password</p>
+          <p className="mt-1 text-xs text-slate-500">
+            We will email you a link that signs you in. New addresses get an account automatically.
+          </p>
+          <form onSubmit={handleMagicLink} className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <input
+              type="email"
+              required
+              value={linkEmail}
+              onChange={(event) => setLinkEmail(event.target.value)}
+              placeholder="you@example.com"
+              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-violet-400"
+            />
+            <button
+              type="submit"
+              disabled={isSendingLink}
+              className="shrink-0 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-violet-300 hover:text-violet-700 disabled:cursor-wait disabled:opacity-60"
+            >
+              {isSendingLink ? 'Sending…' : 'Email me a link'}
+            </button>
+          </form>
+          {linkMessage && <p role="status" className="mt-3 text-xs text-emerald-700">{linkMessage}</p>}
+          {linkError && <p role="alert" className="mt-3 text-xs text-rose-600">{linkError}</p>}
+        </div>
 
       </div>
     </AuthLayout>

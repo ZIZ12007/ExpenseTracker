@@ -19,7 +19,7 @@ const userSchema = new mongoose.Schema({
     profileImageUrl: { type: String, default: null },
 
     // How the account signs in.
-    provider: { type: String, enum: ['local', 'google'], default: 'local' },
+    provider: { type: String, enum: ['local', 'google', 'email'], default: 'local' },
     googleId: { type: String, unique: true, sparse: true },
 
     // Email verification and password recovery.
@@ -28,6 +28,9 @@ const userSchema = new mongoose.Schema({
     verifyTokenExpires: { type: Date, default: null },
     resetToken: { type: String, default: null },
     resetTokenExpires: { type: Date, default: null },
+    // A one time sign in link.
+    loginToken: { type: String, default: null },
+    loginTokenExpires: { type: Date, default: null },
 
     // Preferences.
     currency: { type: String, default: 'NGN', enum: ['NGN', 'USD', 'GBP', 'EUR', 'GHS', 'ZAR', 'KES'] },

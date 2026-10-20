@@ -13,6 +13,9 @@ const {
     googleStart,
     googleCallback,
     googleStatus,
+    requestMagicLink,
+    verifyMagicLink,
+    magicLinkEntry,
 } = require("../controllers/authController")
 const upload = require("../middleware/uploadMiddleware")
 const fs = require('fs')
@@ -36,6 +39,10 @@ router.post("/reset-password", resetPassword)
 router.get("/google/status", googleStatus)
 router.get("/google", googleStart)
 router.get("/google/callback", googleCallback)
+
+router.post("/magic-link", requestMagicLink)
+router.post("/magic-link/verify", verifyMagicLink)
+router.get("/magic-link", magicLinkEntry)
 
 router.post("/upload-image", upload.single("image"), async (req, res) => {
     if (!req.file) {

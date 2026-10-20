@@ -78,9 +78,28 @@ const sendPasswordResetEmail = async ({ to, name, link }) => {
     return send({ to, subject, html, text });
 };
 
+const sendMagicLinkEmail = async ({ to, name, link, isNewAccount = false }) => {
+    const subject = 'Your sign in link for Expense Tracker';
+    const html = layout('Sign in to Expense Tracker', `
+      <p style="font-size:15px;line-height:1.6">Hi ${escapeHtml(name || 'there')},</p>
+      <p style="font-size:15px;line-height:1.6">
+        ${isNewAccount
+            ? 'We created an account for you. Use the button below to sign in and start tracking your spending.'
+            : 'Use the button below to sign in. No password needed.'}
+      </p>
+      <p style="margin:24px 0">
+        <a href="${escapeHtml(link)}" style="background:#7c3aed;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block">Sign in to Expense Tracker</a>
+      </p>
+      <p style="font-size:13px;color:#475569">This link works once and expires in 15 minutes.<br>If the button does not work, paste this link into your browser:<br><a href="${escapeHtml(link)}" style="color:#7c3aed">${escapeHtml(link)}</a></p>
+    `);
+    const text = `Sign in to Expense Tracker: ${link}`;
+    return send({ to, subject, html, text });
+};
+
 module.exports = {
     isConfigured,
     send,
     sendVerificationEmail,
     sendPasswordResetEmail,
+    sendMagicLinkEmail,
 };

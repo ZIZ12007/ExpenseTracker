@@ -9,17 +9,25 @@
  * API key is set or if the API is unavailable.
  */
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
-const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+
+// The free tier limits differ a lot between models - some are as low as 20
+// requests a day - and a model can be retired or busy at any time. The models
+// are tried in order and the first one that answers is used.
+const MODEL_CHAIN = (
+    process.env.GEMINI_MODEL
+        ? [process.env.GEMINI_MODEL]
+        : ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.1-flash-lite']
+).concat(['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.1-flash-lite']);
 
 const isConfigured = () => Boolean(process.env.GEMINI_API_KEY);
 
-const callGemini = async ({ prompt, image, json = true }) => {
+const callModel = async (model, { prompt, image, json = true }) => {
     const parts = [{ text: prompt }];
     if (image) {
         parts.push({ inline_data: { mime_type: image.mimeType, data: image.base64 } });
     }
 
-    const response = await fetch(`${API_BASE}/${MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+    const response = await fetch(`${API_BASE}/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -33,11 +41,55 @@ const callGemini = async ({ prompt, image, json = true }) => {
 
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
-        throw new Error(`Gemini error ${response.status}: ${result?.error?.message || 'unknown'}`);
+        const err = new Error(`Gemini error ${response.status}: ${result?.error?.message || 'unknown'}`);
+        err.status = response.status;
+        throw err;
     }
     const text = result?.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') || '';
     if (!text) throw new Error('Gemini returned an empty response');
     return text;
+};
+
+/**
+ * Tries each model in turn, so a model that is out of quota or has been
+ * retired does not take the feature down with it.
+ *
+ * The last model that worked is tried first next time, and a model that is
+ * merely busy (503) is retried once before moving on.
+ */
+let lastWorkingModel = null;
+
+const callGemini = async (options) => {
+    const tried = new Set();
+    let lastError = null;
+
+    const order = lastWorkingModel
+        ? [lastWorkingModel, ...MODEL_CHAIN]
+        : MODEL_CHAIN;
+
+    for (const model of order) {
+        if (tried.has(model)) continue;
+        tried.add(model);
+
+        for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+                const text = await callModel(model, options);
+                lastWorkingModel = model;
+                return { text, model };
+            } catch (err) {
+                lastError = err;
+                // A busy model is worth one more try; a quota or missing model
+                // is not.
+                if (err.status === 503 && attempt === 0) {
+                    await new Promise((r) => setTimeout(r, 1500));
+                    continue;
+                }
+                break;
+            }
+        }
+        console.error(`Gemini model ${model} failed: ${lastError?.message}`);
+    }
+    throw lastError || new Error('No Gemini model was available');
 };
 
 const parseJson = (text) => {
@@ -70,7 +122,7 @@ Rules:
 - If the image is not a timetable, return { "meals": [], "notes": "could not be read" }.`;
 
     const text = await callGemini({ prompt, image, json: true });
-    const parsed = parseJson(text);
+    const parsed = parseJson(text.text);
     const meals = Array.isArray(parsed.meals) ? parsed.meals : [];
     return {
         meals: meals
@@ -120,7 +172,7 @@ Return JSON only, in exactly this shape:
 The combined cost of the meals must not exceed the remaining daily budget. Use realistic street prices in ${currency}.`;
 
     const text = await callGemini({ prompt, json: true });
-    const parsed = parseJson(text);
+    const parsed = parseJson(text.text);
 
     return {
         source: 'ai',
@@ -139,4 +191,4 @@ The combined cost of the meals must not exceed the remaining daily budget. Use r
     };
 };
 
-module.exports = { isConfigured, readTimetable, recommendMeals, MODEL };
+module.exports = { isConfigured, readTimetable, recommendMeals, MODEL_CHAIN };
