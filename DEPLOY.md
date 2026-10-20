@@ -9,6 +9,39 @@ most reliable setup is **one service** that serves both the API and the app.
 
 ---
 
+## Features
+
+| Feature | What it does | Needs |
+| --- | --- | --- |
+| **Google sign in** | "Continue with Google" on the login and sign up pages. A Google account creates the account and is treated as already verified. | `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` |
+| **Email verification** | A link is emailed after signing up. The app works without it, but shows a reminder banner and the account can request a new link. | `RESEND_API_KEY` (emails are logged when it is missing) |
+| **Password recovery** | "Forgot your password" emails a link that works for an hour. The account can also change its password in Settings. | `RESEND_API_KEY` |
+| **Usernames** | Every account can set a short unique handle, changed from Settings. | - |
+| **Settings** | Profile, currency, daily allowance, notifications, password and sign out. | - |
+| **Naira by default** | Amounts are shown in ₦. The currency can be changed per user. | - |
+| **Onboarding tour** | A five step guided tour with a pointer, shown once to new accounts. | - |
+| **Budget and meals** | Set a daily allowance, list recurring costs, and see what is left for food. | - |
+| **Timetable** | Upload a photo of the school food timetable and the meals are read from it. | `GEMINI_API_KEY` (upload still works without it) |
+| **Food suggestions** | A meal plan that fits the remaining daily budget. | `GEMINI_API_KEY` (a rule based planner is used without it) |
+
+### Google sign in setup
+
+1. In the [Google Cloud Console](https://console.cloud.google.com/apis/credentials), create an **OAuth 2.0 Client ID** of type *Web application*.
+2. Add the redirect URI: `https://<your-domain>/api/v1/auth/google/callback`
+3. Put the client id and secret in `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+
+The button only appears once both are set, so the app is safe to deploy before
+the credentials exist.
+
+### AI setup
+
+`GEMINI_API_KEY` comes from [Google AI Studio](https://aistudio.google.com/apk-key).
+The free tier allows roughly 1,500 requests a day with no credit card, which
+covers a few hundred users asking for a plan once or twice a day. Without a
+key the app uses its own rule based planner, so the feature never breaks.
+
+---
+
 ## Option A (recommended): Render + MongoDB Atlas
 
 > **Before you start:** a Render workspace needs a payment method on file
