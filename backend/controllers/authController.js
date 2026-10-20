@@ -1,5 +1,14 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const mailer = require('../services/mailer');
+const {
+    issueVerificationToken,
+    issueResetToken,
+    findByToken,
+    clearToken,
+    signState,
+    verifyState,
+} = require('../services/accountTokens');
 
 // A short-lived access token plus a long-lived refresh token. The access
 // token lives long enough that a normal user never sees a login prompt, and
@@ -8,9 +17,19 @@ const jwt = require('jsonwebtoken');
 const ACCESS_TOKEN_TTL = process.env.JWT_EXPIRES_IN || '7d';
 const REFRESH_TOKEN_TTL = process.env.JWT_REFRESH_EXPIRES_IN || '30d';
 
+const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
+const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo';
+
+const frontendUrl = () => process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
+
 const publicUser = (user) => {
     const result = user.toObject()
     delete result.password
+    delete result.verifyToken
+    delete result.verifyTokenExpires
+    delete result.resetToken
+    delete result.resetTokenExpires
     return result
 }
 
@@ -26,9 +45,31 @@ const issueTokens = (id) => ({
     refreshToken: generateToken(id, 'refresh'),
 });
 
+const verificationLink = (token) => `${frontendUrl()}/verify-email?token=${encodeURIComponent(token)}`;
+const resetLink = (token) => `${frontendUrl()}/reset-password?token=${encodeURIComponent(token)}`;
+
+/**
+ * Sends the verification email, logging a warning rather than failing the
+ * request if the mail service is unavailable.
+ */
+const sendVerification = async (user) => {
+    const token = issueVerificationToken(user);
+    await user.save();
+    try {
+        await mailer.sendVerificationEmail({
+            to: user.email,
+            name: user.fullName,
+            link: verificationLink(token),
+        });
+    } catch (err) {
+        console.error('Could not send the verification email:', err.message);
+    }
+    return token;
+}
+
 // REGISTER USER
 exports.registerUser = async (req, res) => {
-    const { fullName, email, password, profileImageUrl } = req.body || {};
+    const { fullName, email, password, username, profileImageUrl } = req.body || {};
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : ''
 
     if (!fullName?.trim() || !normalizedEmail || typeof password !== 'string' || password.length < 8) {
@@ -42,13 +83,24 @@ exports.registerUser = async (req, res) => {
             return res.status(400).json({ message: 'User already exists with this email' });
         }
 
+        if (username) {
+            const taken = await User.findOne({ username: username.trim() });
+            if (taken) {
+                return res.status(400).json({ message: 'That username is already taken.' });
+            }
+        }
+
         // Create new user
         const user = await User.create({
             fullName: fullName.trim(),
             email: normalizedEmail,
             password,
-            profileImageUrl
+            username: username ? username.trim() : undefined,
+            profileImageUrl,
+            provider: 'local',
         });
+
+        await sendVerification(user);
 
         res.status(201).json({
             id: user._id,
@@ -127,3 +179,209 @@ exports.getUserInfo = async (req, res) => {
         res.status(500).json({ message: 'Server error', error: err.message });
     }
 }
+
+// VERIFY EMAIL
+exports.verifyEmail = async (req, res) => {
+    const { token } = req.body || {};
+    if (!token) {
+        return res.status(400).json({ message: 'A verification token is required.' });
+    }
+
+    try {
+        const user = await findByToken(User, 'verifyToken', token);
+        if (!user) {
+            return res.status(400).json({ message: 'This verification link is invalid or has expired.' });
+        }
+
+        user.emailVerified = true;
+        clearToken(user, 'verifyToken');
+        await user.save();
+
+        res.status(200).json({ message: 'Your email address is verified.', user: publicUser(user) });
+    } catch (err) {
+        console.error('authController.verifyEmail error:', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+}
+
+// RESEND THE VERIFICATION EMAIL
+exports.resendVerification = async (req, res) => {
+    const { email } = req.body || {};
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    if (!normalizedEmail) {
+        return res.status(400).json({ message: 'Please provide your email address.' });
+    }
+
+    try {
+        const user = await User.findOne({ email: normalizedEmail });
+        // The same answer either way, so the endpoint cannot be used to find
+        // out which addresses are registered.
+        if (user && !user.emailVerified) {
+            await sendVerification(user);
+        }
+        res.status(200).json({ message: 'If that address needs verifying, a new link is on its way.' });
+    } catch (err) {
+        console.error('authController.resendVerification error:', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+}
+
+// FORGOT PASSWORD - send a reset link
+exports.forgotPassword = async (req, res) => {
+    const { email } = req.body || {};
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    if (!normalizedEmail) {
+        return res.status(400).json({ message: 'Please provide your email address.' });
+    }
+
+    try {
+        const user = await User.findOne({ email: normalizedEmail });
+        if (user && user.provider === 'local') {
+            const token = issueResetToken(user);
+            await user.save();
+            try {
+                await mailer.sendPasswordResetEmail({
+                    to: user.email,
+                    name: user.fullName,
+                    link: resetLink(token),
+                });
+            } catch (err) {
+                console.error('Could not send the password reset email:', err.message);
+            }
+        }
+        // Always the same answer, so the endpoint cannot be used to find out
+        // which addresses are registered.
+        res.status(200).json({ message: 'If that address has an account, a reset link is on its way.' });
+    } catch (err) {
+        console.error('authController.forgotPassword error:', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+}
+
+// RESET PASSWORD
+exports.resetPassword = async (req, res) => {
+    const { token, password } = req.body || {};
+    if (!token || typeof password !== 'string' || password.length < 8) {
+        return res.status(400).json({ message: 'Provide a valid token and a password with at least 8 characters.' });
+    }
+
+    try {
+        const user = await findByToken(User, 'resetToken', token);
+        if (!user) {
+            return res.status(400).json({ message: 'This reset link is invalid or has expired.' });
+        }
+
+        user.password = password;
+        clearToken(user, 'resetToken');
+        await user.save();
+
+        res.status(200).json({ message: 'Your password has been changed.', ...issueTokens(user._id) });
+    } catch (err) {
+        console.error('authController.resetPassword error:', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+}
+
+// GOOGLE SIGN IN - start the redirect
+exports.googleStart = async (req, res) => {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
+        return res.status(501).json({ message: 'Google sign in is not configured on this server.' });
+    }
+
+    const redirectUri = `${req.protocol}://${req.get('host')}${req.baseUrl}${req.path}/callback`;
+    const state = signState({ redirectTo: req.query.redirectTo });
+
+    const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        scope: 'openid email profile',
+        access_type: 'offline',
+        prompt: 'select_account',
+        state,
+    });
+
+    res.redirect(`${GOOGLE_AUTH_URL}?${params.toString()}`);
+};
+
+// GOOGLE SIGN IN - handle the callback
+exports.googleCallback = async (req, res) => {
+    const { code, state, error } = req.query;
+
+    if (error) {
+        return res.redirect(`${frontendUrl()}/login?error=${encodeURIComponent('Google sign in was cancelled.')}`);
+    }
+    if (!code) {
+        return res.redirect(`${frontendUrl()}/login?error=${encodeURIComponent('Google sign in failed.')}`);
+    }
+
+    const verifiedState = verifyState(state);
+    if (!verifiedState) {
+        return res.redirect(`${frontendUrl()}/login?error=${encodeURIComponent('The sign in request could not be verified.')}`);
+    }
+
+    try {
+        const redirectUri = `${req.protocol}://${req.get('host')}${req.baseUrl}${req.path}`;
+
+        const tokenResponse = await fetch(GOOGLE_TOKEN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                code,
+                client_id: process.env.GOOGLE_CLIENT_ID,
+                client_secret: process.env.GOOGLE_CLIENT_SECRET,
+                redirect_uri: redirectUri,
+                grant_type: 'authorization_code',
+            }),
+        });
+        const tokenData = await tokenResponse.json();
+        if (!tokenResponse.ok) {
+            throw new Error(tokenData?.error_description || 'Could not exchange the code');
+        }
+
+        const profileResponse = await fetch(GOOGLE_USERINFO_URL, {
+            headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        });
+        const profile = await profileResponse.json();
+        if (!profileResponse.ok || !profile.email) {
+            throw new Error('Could not read the Google profile');
+        }
+
+        const email = profile.email.toLowerCase();
+        let user = await User.findOne({ email });
+
+        if (!user) {
+            user = await User.create({
+                fullName: profile.name || email.split('@')[0],
+                email,
+                username: (profile.given_name || email.split('@')[0]).replace(/[^a-zA-Z0-9_.]/g, '').slice(0, 24) || undefined,
+                password: undefined,
+                profileImageUrl: profile.picture || null,
+                provider: 'google',
+                googleId: profile.sub,
+                emailVerified: true,   // Google has already confirmed the address
+            });
+        } else {
+            // An existing local account keeps its password; the Google link
+            // simply becomes another way in.
+            user.provider = 'google';
+            user.googleId = user.googleId || profile.sub;
+            user.emailVerified = true;
+            if (profile.picture && !user.profileImageUrl) user.profileImageUrl = profile.picture;
+            await user.save();
+        }
+
+        const tokens = issueTokens(user._id);
+        const fragment = new URLSearchParams({ token: tokens.token, refreshToken: tokens.refreshToken });
+        res.redirect(`${frontendUrl()}/auth/callback#${fragment.toString()}`);
+    } catch (err) {
+        console.error('authController.googleCallback error:', err);
+        res.redirect(`${frontendUrl()}/login?error=${encodeURIComponent('Google sign in failed. Please try again.')}`);
+    }
+};
+
+// Does this server have Google sign in available?
+exports.googleStatus = async (req, res) => {
+    res.status(200).json({ enabled: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) });
+};

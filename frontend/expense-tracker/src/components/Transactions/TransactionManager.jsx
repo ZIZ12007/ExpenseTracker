@@ -4,6 +4,7 @@ import DashboardLayout from '../Layout/DashboardLayout'
 import { useUserAuth } from '../../hooks/useUserAuth'
 import { API_PATHS } from '../../utils/apiPaths'
 import axiosInstance from '../../utils/axiosInstance'
+import { useCurrency } from '../../utils/currency'
 
 const EXPENSE_CATEGORIES = ['Food & dining', 'Shopping', 'Transport', 'Bills & utilities', 'Health', 'Entertainment', 'Travel', 'Other']
 const INCOME_SOURCES = ['Salary', 'Freelance', 'Business', 'Investment', 'Gift', 'Other']
@@ -12,15 +13,13 @@ const today = () => {
   date.setMinutes(date.getMinutes() - date.getTimezoneOffset())
   return date.toISOString().slice(0, 10)
 }
-const currency = (value) => new Intl.NumberFormat('en-US', {
-  style: 'currency', currency: 'USD', maximumFractionDigits: 2,
-}).format(Number(value) || 0)
 const prettyDate = (value) => new Date(value).toLocaleDateString(undefined, {
   month: 'short', day: 'numeric', year: 'numeric',
 })
 
 const TransactionManager = ({ type }) => {
   useUserAuth()
+  const { money: currency } = useCurrency()
   const isIncome = type === 'income'
   const title = isIncome ? 'Income' : 'Expenses'
   const fieldLabel = isIncome ? 'Income source' : 'Expense category'
@@ -206,7 +205,7 @@ const TransactionManager = ({ type }) => {
             <div className="mb-5 flex items-center gap-2 rounded-xl border border-slate-200 px-3.5 focus-within:border-violet-400 focus-within:ring-4 focus-within:ring-violet-100">
               <LuCalendarDays className="shrink-0 text-slate-400" /><input type="date" required value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} className="w-full bg-transparent py-3 text-sm outline-none" />
             </div>
-            <button disabled={saving} className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white transition disabled:cursor-wait disabled:opacity-60 ${isIncome ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-violet-600 hover:bg-violet-700'}`}>
+            <button disabled={saving} data-tour="add" className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white transition disabled:cursor-wait disabled:opacity-60 ${isIncome ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-violet-600 hover:bg-violet-700'}`}>
               <LuPlus /> {saving ? 'Saving…' : `Add ${isIncome ? 'income' : 'expense'}`}
             </button>
           </form>

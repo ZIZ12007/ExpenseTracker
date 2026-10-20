@@ -9,19 +9,14 @@ import {
   Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
 } from 'recharts'
+import { useCurrency } from '../../utils/currency'
 
 const COLORS = ['#7957e8', '#18a879', '#f59e0b', '#f06565', '#3b82f6', '#ec4899', '#14b8a6', '#8b5cf6']
-const money = (value) => new Intl.NumberFormat('en-US', {
-  style: 'currency', currency: 'USD', maximumFractionDigits: 0,
-}).format(Number(value) || 0)
-const shortMoney = (value) => {
-  const amount = Number(value) || 0
-  return amount >= 1000 ? `$${(amount / 1000).toFixed(amount >= 10000 ? 0 : 1)}k` : `$${amount}`
-}
 const dateLabel = (date) => new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 
 const Home = () => {
   useUserAuth()
+  const { money, compact: shortMoney } = useCurrency()
 
   const [dashboardData, setDashboardData] = useState(null)
   const [loading, setLoading] = useState(() => Boolean(localStorage.getItem('token')))

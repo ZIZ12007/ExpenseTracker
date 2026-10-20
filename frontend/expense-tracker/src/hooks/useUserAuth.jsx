@@ -3,6 +3,7 @@ import { UserContext } from '../context/UserContextDefinition';
 import { useNavigate } from "react-router-dom";
 import axiosInstance from "../utils/axiosInstance";
 import { API_PATHS } from "../utils/apiPaths";
+import { setCurrency } from "../utils/currency";
 
 export const useUserAuth = () => {
     const { user, updateUser, clearUser } = useContext(UserContext);
@@ -20,6 +21,8 @@ export const useUserAuth = () => {
 
                 if (isMounted && response.data) {
                     updateUser(response.data);
+                    // The currency the user chose is applied as soon as we know it.
+                    if (response.data.currency) setCurrency(response.data.currency);
                 }
             } catch (error) {
                 console.error('Error fetching user info:', error);

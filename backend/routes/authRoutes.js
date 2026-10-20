@@ -6,6 +6,13 @@ const {
     loginUser,
     getUserInfo,
     refreshSession,
+    verifyEmail,
+    resendVerification,
+    forgotPassword,
+    resetPassword,
+    googleStart,
+    googleCallback,
+    googleStatus,
 } = require("../controllers/authController")
 const upload = require("../middleware/uploadMiddleware")
 const fs = require('fs')
@@ -20,6 +27,15 @@ router.post("/login", loginUser)
 router.get("/me", protect, getUserInfo)
 
 router.post("/refresh", refreshSession)
+
+router.post("/verify-email", verifyEmail)
+router.post("/resend-verification", resendVerification)
+router.post("/forgot-password", forgotPassword)
+router.post("/reset-password", resetPassword)
+
+router.get("/google/status", googleStatus)
+router.get("/google", googleStart)
+router.get("/google/callback", googleCallback)
 
 router.post("/upload-image", upload.single("image"), async (req, res) => {
     if (!req.file) {
