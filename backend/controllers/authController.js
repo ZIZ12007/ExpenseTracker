@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const mailer = require('../services/mailer');
 const {
     issueVerificationToken,
@@ -73,8 +74,34 @@ const sendVerification = async (user) => {
 
 /**
  * Tells the account holder that somebody signed in.
+ *
+ * How often this happens is controlled by SEND_SIGN_IN_EMAIL:
+ *   always       - every sign in (the default)
+ *   new_device   - only the first sign in from a device, which keeps a shared
+ *                  email allowance from being used up by one busy user
+ *   off          - never
  */
 const notifySignIn = async (user, req) => {
+    const mode = (process.env.SEND_SIGN_IN_EMAIL || 'always').toLowerCase();
+    if (mode === 'off') return;
+
+    const fingerprint = crypto.createHash('sha256')
+        .update(`${req.get('user-agent') || ''}|${req.ip || ''}`)
+        .digest('hex')
+        .slice(0, 16);
+
+    const known = user.knownDevices || [];
+    const isNewDevice = !known.includes(fingerprint);
+
+    if (mode === 'new_device' && !isNewDevice) {
+        return;
+    }
+
+    if (isNewDevice) {
+        user.knownDevices = [fingerprint, ...known].slice(0, 5);
+        await user.save();
+    }
+
     const device = (req.get('user-agent') || '').split(')')[0].replace(/^.*\//, '') || 'unknown';
     await mailer.sendSafely(() => mailer.sendSignInEmail({
         to: user.email,

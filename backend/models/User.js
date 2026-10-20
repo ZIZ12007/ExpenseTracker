@@ -31,6 +31,8 @@ const userSchema = new mongoose.Schema({
     // A one time sign in link.
     loginToken: { type: String, default: null },
     loginTokenExpires: { type: Date, default: null },
+    // Recent sign in fingerprints, used to spot a sign in from a new device.
+    knownDevices: { type: [String], default: [] },
 
     // Preferences.
     currency: { type: String, default: 'NGN', enum: ['NGN', 'USD', 'GBP', 'EUR', 'GHS', 'ZAR', 'KES'] },

@@ -27,17 +27,42 @@ most reliable setup is **one service** that serves both the API and the app.
 
 ### Email setup, in full
 
-Resend's free tier sends 3,000 emails a month, but a new account can only
-send **to its own address** until a domain is verified. To email real users:
+**Brevo** is the default provider: 300 emails a day on the free plan, and
+unlike Resend it can send to anybody as soon as the sender address is
+verified - no domain purchase needed.
 
-1. Add your domain at [resend.com/domains](https://resend.com/domains).
-2. Add the three DNS records it gives you (usually on Cloudflare, which is
-   where this app's domain is).
-3. Set `MAIL_FROM` to an address on that domain, for example
-   `Expense Tracker <noreply@yourdomain.com>`.
+1. Sign up at [brevo.com](https://www.brevo.com) and verify your email address.
+2. **Senders & Domains** → add the address you want the emails to come from
+   → click the verification link in the email Brevo sends.
+3. **SMTP & API** → **API Keys** → **Generate a new API key** → copy it.
+4. Set `BREVO_API_KEY` and `BREVO_SENDER_EMAIL` (or put both in `MAIL_FROM`
+   as `Expense Tracker <you@example.com>`).
 
-Until then the app still works - emails simply do not go out to anyone but
-you, and the link is written to the server log.
+**Resend** is also supported: 3,000 emails a month, but a new account can
+only send to its own address until a domain is verified. Set `MAIL_PROVIDER`
+to `resend` to use it, or leave it unset and it is used whenever no Brevo key
+is present.
+
+### How often emails are sent
+
+| Event | Email |
+| --- | --- |
+| Sign up | Verify your email address |
+| Sign in | New sign in, with the time, device and IP |
+| Password changed | Your password was changed |
+| Profile changed | Your profile was updated, listing what changed |
+| Password reset requested | Reset your password |
+
+`SEND_SIGN_IN_EMAIL` controls the sign in email:
+
+- `always` - every sign in (the default)
+- `new_device` - only the first sign in from a device, which keeps a shared
+  daily allowance from being used up by one busy user
+- `off` - never
+
+With 200 users signing in once a day, `always` is around 200 emails a day
+and fits inside Brevo's 300. If your users sign in several times a day, use
+`new_device`.
 
 ### AI setup
 

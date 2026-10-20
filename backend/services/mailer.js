@@ -1,18 +1,29 @@
 /**
  * Sends transactional email.
  *
- * Uses the Resend HTTP API (no SDK dependency). The free tier allows 3,000
- * emails a month and 100 a day, which covers verification and password
- * recovery for a few hundred users.
+ * Two providers are supported:
+ *   - Brevo   300 emails a day, and can send to anybody once the sender
+ *             address is verified. No domain purchase needed.
+ *   - Resend  3,000 a month, but a new account can only send to its own
+ *             address until a domain is verified.
  *
- * When no API key is configured the message is written to the server log
- * instead, so the flow can be tested end to end before the account exists.
+ * The provider is chosen with MAIL_PROVIDER, or automatically: Brevo if its
+ * key is set, otherwise Resend.
+ *
+ * When no key is configured the message is written to the server log
+ * instead, so the flow can be tested end to end.
  */
-const RESEND_ENDPOINT = 'https://api.resend.com/emails';
+const brevo = require('./providers/brevo');
+const resend = require('./providers/resend');
 
-const isConfigured = () => Boolean(process.env.RESEND_API_KEY);
+const provider = () => {
+    const chosen = (process.env.MAIL_PROVIDER || '').toLowerCase();
+    if (chosen === 'brevo') return brevo;
+    if (chosen === 'resend') return resend;
+    return brevo.isConfigured() ? brevo : resend;
+};
 
-const from = () => process.env.MAIL_FROM || 'Expense Tracker <onboarding@resend.dev>';
+const isConfigured = () => provider().isConfigured();
 
 // Where the app lives, used for the links inside the emails.
 const frontendUrl = () => process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -31,27 +42,13 @@ const layout = (title, bodyHtml) => `
 </div>`;
 
 const send = async ({ to, subject, html, text }) => {
-    if (!isConfigured()) {
+    const active = provider();
+    if (!active.isConfigured()) {
         const link = (html.match(/href="(http[^"]+)"/) || [])[1] || '(no link)';
-        console.log(`\n--- email (not sent, RESEND_API_KEY is not set) ---\n  to: ${to}\n  subject: ${subject}\n  ${link}\n`);
+        console.log(`\n--- email (not sent, no mail provider is configured) ---\n  to: ${to}\n  subject: ${subject}\n  ${link}\n`);
         return { sent: false, preview: link };
     }
-
-    const response = await fetch(RESEND_ENDPOINT, {
-        method: 'POST',
-        headers: {
-            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ from: from(), to: [to], subject, html, text }),
-        signal: AbortSignal.timeout(Number(process.env.MAIL_TIMEOUT_MS || 8000)),
-    });
-
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        throw new Error(`Resend rejected the message: ${result?.message || response.status}`);
-    }
-    return { sent: true, id: result.id };
+    return active.send({ to, subject, html, text });
 };
 
 /**
