@@ -31,12 +31,20 @@ app.use(express.urlencoded({ extended: true }));
 
 connectDB();
 
-// Fail fast instead of letting Mongoose buffer requests until the client times out.
-app.use("/api/v1", (req, res, next) => {
+// Fail fast instead of letting Mongoose buffer requests until the client times
+// out - but try to recover first, so a dropped connection heals itself.
+app.use("/api/v1", async (req, res, next) => {
     if (mongoose.connection.readyState !== 1) {
-        return res.status(503).json({
-            message: "Database unavailable. Check the MongoDB connection and try again.",
-        });
+        try {
+            await connectDB();
+        } catch (err) {
+            console.error('MongoDB reconnect failed:', err.message);
+        }
+        if (mongoose.connection.readyState !== 1) {
+            return res.status(503).json({
+                message: "Database unavailable. Check the MongoDB connection and try again.",
+            });
+        }
     }
     next();
 });
