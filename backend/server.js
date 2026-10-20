@@ -6,6 +6,7 @@ const fs = require("fs");
 const mongoose = require("mongoose");
 const compression = require("compression");
 const rateLimit = require("express-rate-limit");
+const { sharedLimit } = require("./middleware/sharedRateLimit");
 const connectDB = require("./config/db");
 const { resolveUploadsDir } = require("./config/storage");
 const authRoutes = require("./routes/authRoutes");
@@ -65,6 +66,15 @@ const authLimiter = rateLimit({
     message: { message: "Too many authentication attempts. Please try again later." },
 });
 
+// The in-memory limiter only sees the requests that reach one instance, so
+// the auth endpoints also use a counter that is shared through the database.
+const authSharedLimiter = sharedLimit({
+    key: 'auth',
+    windowMs: 15 * 60 * 1000,
+    limit: Number(process.env.RATE_LIMIT_AUTH_MAX || 40),
+    message: "Too many authentication attempts. Please try again later.",
+});
+
 connectDB();
 
 // Fail fast instead of letting Mongoose buffer requests until the client times
@@ -85,9 +95,9 @@ app.use("/api/v1", async (req, res, next) => {
     next();
 });
 
-app.use("/api/v1/auth/login", authLimiter);
-app.use("/api/v1/auth/register", authLimiter);
-app.use("/api/v1/auth/refresh", authLimiter);
+app.use("/api/v1/auth/login", authLimiter, authSharedLimiter);
+app.use("/api/v1/auth/register", authLimiter, authSharedLimiter);
+app.use("/api/v1/auth/refresh", authLimiter, authSharedLimiter);
 app.use("/api/v1", apiLimiter);
 
 app.use("/api/v1/auth", authRoutes);
