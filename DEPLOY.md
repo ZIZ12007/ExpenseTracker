@@ -14,7 +14,8 @@ most reliable setup is **one service** that serves both the API and the app.
 | Feature | What it does | Needs |
 | --- | --- | --- |
 | **Google sign in** | "Continue with Google" on the login and sign up pages. A Google account creates the account and is treated as already verified. | `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` |
-| **Email verification** | A link is emailed after signing up. The app works without it, but shows a reminder banner and the account can request a new link. | `RESEND_API_KEY` (emails are logged when it is missing) |
+| **Email sign in link** | No password needed: the app emails a one time link that signs you in. New addresses get an account automatically. | `RESEND_API_KEY` |
+| **Email verification** | A link is emailed after signing up with a password. The app works without it, but shows a reminder banner and the account can request a new link. | `RESEND_API_KEY` (emails are logged when it is missing) |
 | **Password recovery** | "Forgot your password" emails a link that works for an hour. The account can also change its password in Settings. | `RESEND_API_KEY` |
 | **Usernames** | Every account can set a short unique handle, changed from Settings. | - |
 | **Settings** | Profile, currency, daily allowance, notifications, password and sign out. | - |
@@ -23,6 +24,34 @@ most reliable setup is **one service** that serves both the API and the app.
 | **Budget and meals** | Set a daily allowance, list recurring costs, and see what is left for food. | - |
 | **Timetable** | Upload a photo of the school food timetable and the meals are read from it. | `GEMINI_API_KEY` (upload still works without it) |
 | **Food suggestions** | A meal plan that fits the remaining daily budget. | `GEMINI_API_KEY` (a rule based planner is used without it) |
+
+### Email setup, in full
+
+Resend's free tier sends 3,000 emails a month, but a new account can only
+send **to its own address** until a domain is verified. To email real users:
+
+1. Add your domain at [resend.com/domains](https://resend.com/domains).
+2. Add the three DNS records it gives you (usually on Cloudflare, which is
+   where this app's domain is).
+3. Set `MAIL_FROM` to an address on that domain, for example
+   `Expense Tracker <noreply@yourdomain.com>`.
+
+Until then the app still works - emails simply do not go out to anyone but
+you, and the link is written to the server log.
+
+### AI setup
+
+`GEMINI_API_KEY` comes from [Google AI Studio](https://aistudio.google.com/apk-key).
+
+The free tier is generous but not unlimited, and the limits differ per model -
+some are as low as 20 requests a day, and a model can be busy or retired at
+any time. The app therefore tries several models in turn, remembers the one
+that worked, and falls back to its own rule based planner if none answer. A
+plan is always produced.
+
+For dependable AI, enable billing on the AI Studio project: that moves it to
+the Tier 1 limits, which are far higher, and it is billed only for what you
+use.
 
 ### Google sign in setup
 
