@@ -1,10 +1,5 @@
 const multer = require('multer')
 const path = require('path')
-const { resolveUploadsDir } = require('../config/storage')
-
-// Resolve the upload directory from this file, not from process.cwd(), so the
-// folder is the same one that server.js serves statically at /uploads.
-const uploadsDir = resolveUploadsDir()
 
 // Images for avatars, and the formats a school timetable can arrive in.
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/jpg', 'image/webp', 'image/heic']
@@ -26,19 +21,13 @@ const EXTENSION_TYPES = {
 
 /**
  * Builds an uploader that accepts the given file types.
+ *
+ * The file is held in memory only. It is never written to the server's disk:
+ * a serverless instance's disk does not outlive the request, so a file kept
+ * there would be gone by the time anyone looked at it.
  */
 const makeUploader = (allowedTypes) => {
-    const storage = multer.diskStorage({
-        destination: (req, file, cb) => {
-            cb(null, uploadsDir)
-        },
-        filename: (req, file, cb) => {
-            // The name is never used to build a path on disk, but it is
-            // trimmed of anything odd anyway.
-            const safe = file.originalname.replace(/[^\w.\-]+/g, '_').slice(-60) || 'upload';
-            cb(null, `${Date.now()}-${safe}`)
-        },
-    });
+    const storage = multer.memoryStorage();
 
     const fileFilter = (req, file, cb) => {
         const extension = path.extname(file.originalname || '').toLowerCase();

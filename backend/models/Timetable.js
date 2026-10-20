@@ -18,7 +18,9 @@ const MealSchema = new mongoose.Schema({
 const TimetableSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     title: { type: String, default: 'School timetable' },
-    fileUrl: { type: String, required: true },
+    // The file is kept in Cloudinary. It is empty for an HTML timetable,
+    // which is only read and never stored.
+    fileUrl: { type: String, default: '' },
     fileName: { type: String, default: '' },
     status: { type: String, enum: ['processing', 'ready', 'failed'], default: 'processing' },
     meals: { type: [MealSchema], default: [] },

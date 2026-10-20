@@ -1,4 +1,3 @@
-const fs = require('fs');
 const path = require('path');
 const Expense = require('../models/Expense');
 const Income = require('../models/Income');
@@ -8,7 +7,6 @@ const budget = require('../services/budget');
 const ai = require('../services/ai');
 const cloudinary = require('../services/cloudinary');
 const { htmlToText } = require('../services/htmlText');
-const { resolveUploadsDir } = require('../config/storage');
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -145,22 +143,21 @@ exports.uploadTimetable = async (req, res) => {
     }
 
     try {
-        // Multer has already written the file to the uploads directory.
-        const uploadsDir = resolveUploadsDir();
-        const storedName = req.file.filename;
-        const storedPath = path.join(uploadsDir, storedName);
+        // The file is held in memory: a serverless instance's disk does not
+        // outlive the request, so nothing is written to it.
+        const bytes = req.file.buffer;
         const extension = path.extname(req.file.originalname || '').toLowerCase();
-        const bytes = fs.readFileSync(storedPath);
 
         const isHtml = extension === '.html' || extension === '.htm' || /html/.test(req.file.mimetype || '');
         const isPdf = extension === '.pdf' || /pdf/.test(req.file.mimetype || '');
 
-        // A file kept on the server's local disk only exists for as long as
-        // the instance that wrote it, so it is stored in Cloudinary when that
-        // is set up. HTML is not kept: it is only read.
-        let fileUrl = `/uploads/${storedName}`;
-        let stored = 'server';
-        if (!isHtml && cloudinary.isEnabled()) {
+        // The file itself is kept in Cloudinary so its link keeps working.
+        // An HTML file is only read, never kept.
+        let fileUrl = '';
+        if (!isHtml) {
+            if (!cloudinary.isEnabled()) {
+                return res.status(503).json({ message: 'File storage is not set up on this server.' });
+            }
             try {
                 const uploaded = await cloudinary.uploadFile(bytes, {
                     filename: req.file.originalname,
@@ -168,9 +165,9 @@ exports.uploadTimetable = async (req, res) => {
                     folder: 'expensetracker/timetables',
                 });
                 fileUrl = uploaded.url;
-                stored = 'cloudinary';
             } catch (uploadError) {
                 console.error('Could not store the timetable in Cloudinary:', uploadError.message);
+                return res.status(500).json({ message: 'The file could not be stored.' });
             }
         }
 

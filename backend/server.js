@@ -8,7 +8,6 @@ const compression = require("compression");
 const rateLimit = require("express-rate-limit");
 const { sharedLimit, byIp, byAccount } = require("./middleware/sharedRateLimit");
 const connectDB = require("./config/db");
-const { resolveUploadsDir } = require("./config/storage");
 const { checkSecrets } = require("./config/securityCheck");
 const authRoutes = require("./routes/authRoutes");
 const incomeRoutes = require("./routes/incomeRoutes");
@@ -131,29 +130,9 @@ app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/user", userRoutes);
 app.use("/api/v1/budget", budgetRoutes);
 
-// Ensure the upload directory exists (it is gitignored, so it is missing on
-// fresh checkouts and on every deploy). On read-only hosts this falls back to
-// the system temp directory.
-const uploadsDir = resolveUploadsDir();
-
-// Serve uploaded files.
-//
-// Images are shown inside the app, but anything else - a PDF, an HTML file -
-// is downloaded rather than rendered, and a sandbox policy is applied so an
-// uploaded file can never run in the app's own origin.
-const inlineImage = /\.(png|jpe?g|gif|webp)$/i;
-app.use("/uploads", (req, res, next) => {
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("Content-Security-Policy", "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'");
-    if (!inlineImage.test(req.path)) {
-        res.setHeader("Content-Disposition", "attachment");
-    }
-    // A file that is not there must not fall through to the app.
-    if (!fs.existsSync(path.join(uploadsDir, path.basename(req.path)))) {
-        return res.status(404).json({ message: 'That file is no longer available.' });
-    }
-    return express.static(uploadsDir)(req, res, next);
-});
+// Uploaded files live in Cloudinary, so there is nothing to serve from here.
+// A serverless instance's disk does not outlive the request, so a file kept
+// locally would be gone by the time anyone looked at it.
 
 // Serve frontend static files in production
 const frontendDist = path.join(__dirname, "..", "frontend", "expense-tracker", "dist");
@@ -162,7 +141,7 @@ app.use(express.static(frontendDist));
 // SPA catch-all: serve index.html for any non-API route.
 // Express 5 requires named wildcards ("*splat"), a bare "*" throws at startup.
 app.get("/{*splat}", (req, res, next) => {
-    if (req.path.startsWith("/api/") || req.path.startsWith("/uploads/")) {
+    if (req.path.startsWith("/api/")) {
         return next();
     }
     const indexFile = path.join(frontendDist, "index.html");
