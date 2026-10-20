@@ -148,6 +148,10 @@ app.use("/uploads", (req, res, next) => {
     if (!inlineImage.test(req.path)) {
         res.setHeader("Content-Disposition", "attachment");
     }
+    // A file that is not there must not fall through to the app.
+    if (!fs.existsSync(path.join(uploadsDir, path.basename(req.path)))) {
+        return res.status(404).json({ message: 'That file is no longer available.' });
+    }
     return express.static(uploadsDir)(req, res, next);
 });
 

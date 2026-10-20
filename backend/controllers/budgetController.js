@@ -6,6 +6,7 @@ const Timetable = require('../models/Timetable');
 const RecurringExpense = require('../models/RecurringExpense');
 const budget = require('../services/budget');
 const ai = require('../services/ai');
+const cloudinary = require('../services/cloudinary');
 const { htmlToText } = require('../services/htmlText');
 const { resolveUploadsDir } = require('../config/storage');
 
@@ -151,10 +152,32 @@ exports.uploadTimetable = async (req, res) => {
         const extension = path.extname(req.file.originalname || '').toLowerCase();
         const bytes = fs.readFileSync(storedPath);
 
+        const isHtml = extension === '.html' || extension === '.htm' || /html/.test(req.file.mimetype || '');
+        const isPdf = extension === '.pdf' || /pdf/.test(req.file.mimetype || '');
+
+        // A file kept on the server's local disk only exists for as long as
+        // the instance that wrote it, so it is stored in Cloudinary when that
+        // is set up. HTML is not kept: it is only read.
+        let fileUrl = `/uploads/${storedName}`;
+        let stored = 'server';
+        if (!isHtml && cloudinary.isEnabled()) {
+            try {
+                const uploaded = await cloudinary.uploadFile(bytes, {
+                    filename: req.file.originalname,
+                    contentType: req.file.mimetype,
+                    folder: 'expensetracker/timetables',
+                });
+                fileUrl = uploaded.url;
+                stored = 'cloudinary';
+            } catch (uploadError) {
+                console.error('Could not store the timetable in Cloudinary:', uploadError.message);
+            }
+        }
+
         const timetable = await Timetable.create({
             userId: req.user._id,
             title: req.body?.title || 'School timetable',
-            fileUrl: `/uploads/${storedName}`,
+            fileUrl,
             fileName: req.file.originalname,
             status: 'processing',
         });
@@ -165,9 +188,6 @@ exports.uploadTimetable = async (req, res) => {
             await timetable.save();
             return res.status(201).json({ timetable, message: 'Uploaded, but the AI is not configured so the meals were not read.' });
         }
-
-        const isHtml = extension === '.html' || extension === '.htm' || /html/.test(req.file.mimetype || '');
-        const isPdf = extension === '.pdf' || /pdf/.test(req.file.mimetype || '');
 
         try {
             const extracted = await ai.readTimetable({
