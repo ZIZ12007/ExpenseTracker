@@ -4,7 +4,7 @@ import DashboardLayout from '../Layout/DashboardLayout'
 import { useUserAuth } from '../../hooks/useUserAuth'
 import { API_PATHS } from '../../utils/apiPaths'
 import axiosInstance from '../../utils/axiosInstance'
-import { useCurrency } from '../../utils/currency'
+import Money from '../Money'
 
 const EXPENSE_CATEGORIES = ['Food & dining', 'Shopping', 'Transport', 'Bills & utilities', 'Health', 'Entertainment', 'Travel', 'Other']
 const INCOME_SOURCES = ['Salary', 'Freelance', 'Business', 'Investment', 'Gift', 'Other']
@@ -19,7 +19,6 @@ const prettyDate = (value) => new Date(value).toLocaleDateString(undefined, {
 
 const TransactionManager = ({ type }) => {
   useUserAuth()
-  const { money: currency } = useCurrency()
   const isIncome = type === 'income'
   const title = isIncome ? 'Income' : 'Expenses'
   const fieldLabel = isIncome ? 'Income source' : 'Expense category'
@@ -166,10 +165,10 @@ const TransactionManager = ({ type }) => {
         <section className="grid gap-4 sm:grid-cols-3">
           <div className={`rounded-2xl p-5 text-white ${isIncome ? 'bg-gradient-to-br from-emerald-500 to-teal-600' : 'bg-gradient-to-br from-rose-500 to-orange-500'}`}>
             <div className="flex items-center justify-between"><p className="text-sm text-white/80">All-time total</p><LuWallet className="text-xl" /></div>
-            <p className="mt-3 text-3xl font-bold">{currency(total)}</p>
+            <p className="mt-3 text-3xl font-bold"><Money amount={total} /></p>
           </div>
           <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">This month</p><p className="mt-3 text-3xl font-bold text-slate-900">{currency(thisMonthTotal)}</p>
+            <p className="text-sm text-slate-500">This month</p><p className="mt-3 text-3xl font-bold text-slate-900"><Money amount={thisMonthTotal} /></p>
           </div>
           <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
             <p className="text-sm text-slate-500">Entries recorded</p><p className="mt-3 text-3xl font-bold text-slate-900">{pagination.total}</p>
@@ -252,7 +251,7 @@ const TransactionManager = ({ type }) => {
                 {visibleTransactions.map((item) => <li key={item._id} className="flex items-center gap-3 px-5 py-4 transition hover:bg-slate-50/70 sm:gap-4">
                   <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg ${isIncome ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{isIncome ? '↗' : (item.icon || '🧾')}</span>
                   <div className="min-w-0 flex-1"><p className="truncate font-medium text-slate-800">{isIncome ? item.source : item.category}</p><p className="mt-1 text-xs text-slate-500">{prettyDate(item.date)}</p></div>
-                  <p className={`whitespace-nowrap text-sm font-semibold sm:text-base ${isIncome ? 'text-emerald-600' : 'text-slate-900'}`}>{isIncome ? '+' : '−'}{currency(item.amount)}</p>
+                  <p className={`whitespace-nowrap text-sm font-semibold sm:text-base ${isIncome ? 'text-emerald-600' : 'text-slate-900'}`}>{isIncome ? '+' : '−'}<Money amount={item.amount} /></p>
                   <button aria-label={`Delete ${isIncome ? item.source : item.category}`} onClick={() => handleDelete(item._id)} className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"><LuTrash2 /></button>
                 </li>)}
               </ul>

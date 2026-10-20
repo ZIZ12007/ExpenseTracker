@@ -16,6 +16,18 @@
     background-color: #fcfbfc;
     overflow-x: hidden;
   }
+
+  /*
+   * The currency symbol is drawn in a font that really has the naira sign.
+   * Poppins does not include it, so the browser falls back to a system font
+   * and fakes the bold, which smears the symbol into a doubled mark.
+   * font-synthesis stops the fake bold from being applied to it.
+   */
+  .currency-symbol {
+    font-family: "Segoe UI", "Noto Sans", "Noto Sans Symbols", "DejaVu Sans", Arial, sans-serif;
+    font-synthesis: none;
+    font-weight: inherit;
+  }
 }
 
 .input-box {

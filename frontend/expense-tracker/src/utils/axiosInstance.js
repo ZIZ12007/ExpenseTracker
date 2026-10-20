@@ -3,7 +3,9 @@ import { BASE_URL } from "./apiPaths";
 
 const axiosInstance = axios.create({
     baseURL: BASE_URL,
-    timeout: 15000,
+    // The food plan asks the AI for a suggestion, which can take a while on a
+    // busy free tier, so this is generous. Individual calls can override it.
+    timeout: 45000,
     headers: {
         "Content-Type": "application/json",
         Accept: "application/json",

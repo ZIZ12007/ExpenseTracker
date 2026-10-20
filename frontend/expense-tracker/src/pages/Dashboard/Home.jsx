@@ -10,6 +10,7 @@ import {
   Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { useCurrency } from '../../utils/currency'
+import Money from '../../components/Money'
 
 const COLORS = ['#7957e8', '#18a879', '#f59e0b', '#f06565', '#3b82f6', '#ec4899', '#14b8a6', '#8b5cf6']
 const dateLabel = (date) => new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -77,19 +78,19 @@ const Home = () => {
     {
       icon: <LuWallet />,
       label: 'Total Balance',
-      value: money(dashboardData?.totalBalance),
+      value: <Money amount={dashboardData?.totalBalance} />,
       color: 'bg-gradient-to-br from-violet-600 to-indigo-600',
     },
     {
       icon: <LuArrowUpRight />,
       label: 'Total Income',
-      value: money(dashboardData?.totalIncome),
+      value: <Money amount={dashboardData?.totalIncome} />,
       color: 'bg-gradient-to-br from-emerald-500 to-teal-600',
     },
     {
       icon: <LuArrowDownLeft />,
       label: 'Total Expenses',
-      value: money(dashboardData?.totalExpenses),
+      value: <Money amount={dashboardData?.totalExpenses} />,
       color: 'bg-gradient-to-br from-rose-500 to-orange-500',
     },
   ]
@@ -138,37 +139,37 @@ const Home = () => {
                 <div className='h-56 min-w-0'>
                   <ResponsiveContainer width='100%' height='100%'><PieChart><Pie data={overviewData} dataKey='value' nameKey='name' innerRadius={58} outerRadius={88} paddingAngle={4} stroke='none'>{overviewData.map((item, index) => <Cell key={item.name} fill={index === 0 ? '#18a879' : '#f06565'} />)}</Pie><Tooltip formatter={(value) => money(value)} /></PieChart></ResponsiveContainer>
                 </div>
-                <div className='space-y-4'>{overviewData.map((item, index) => <div key={item.name} className='flex items-center justify-between gap-3'><div className='flex items-center gap-2'><span className='h-2.5 w-2.5 rounded-full' style={{ backgroundColor: index === 0 ? '#18a879' : '#f06565' }} /><span className='text-sm text-slate-500'>{item.name}</span></div><span className='font-semibold text-slate-800'>{money(item.value)}</span></div>)}<div className='border-t border-slate-100 pt-4'><p className='text-xs text-slate-500'>Available balance</p><p className='mt-1 text-xl font-bold text-violet-700'>{money(dashboardData?.totalBalance)}</p></div></div>
+                <div className='space-y-4'>{overviewData.map((item, index) => <div key={item.name} className='flex items-center justify-between gap-3'><div className='flex items-center gap-2'><span className='h-2.5 w-2.5 rounded-full' style={{ backgroundColor: index === 0 ? '#18a879' : '#f06565' }} /><span className='text-sm text-slate-500'>{item.name}</span></div><Money amount={item.value} className='font-semibold text-slate-800' /></div>)}<div className='border-t border-slate-100 pt-4'><p className='text-xs text-slate-500'>Available balance</p><p className='mt-1 text-xl font-bold text-violet-700'><Money amount={dashboardData?.totalBalance} /></p></div></div>
               </div> : <EmptyChart message='Add income or expenses to see your financial overview.' />}
             </section>
 
             <section className='rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6'>
               <div className='mb-4 flex items-start justify-between'><div><h2 className='text-lg font-semibold text-slate-900'>Recent transactions</h2><p className='mt-1 text-sm text-slate-500'>Your latest activity</p></div><span className='rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600'>{recentTransactions.length} items</span></div>
-              {recentTransactions.length ? <div className='divide-y divide-slate-100'>{recentTransactions.slice(0, 6).map((entry) => <div key={`${entry.type}-${entry._id}`} className='flex items-center gap-3 py-3 first:pt-1 last:pb-0'><span className={`flex h-10 w-10 items-center justify-center rounded-xl ${entry.type === 'income' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>{entry.type === 'income' ? <LuArrowUpRight /> : <LuArrowDownLeft />}</span><div className='min-w-0 flex-1'><p className='truncate text-sm font-medium text-slate-800'>{entry.type === 'income' ? (entry.source || 'Income') : (entry.category || 'Expense')}</p><p className='mt-0.5 text-xs text-slate-500'>{dateLabel(entry.date)}</p></div><span className={`whitespace-nowrap text-sm font-semibold ${entry.type === 'income' ? 'text-emerald-600' : 'text-slate-800'}`}>{entry.type === 'income' ? '+' : '−'}{money(entry.amount)}</span></div>)}</div> : <EmptyChart message='Your recent activity will appear here.' />}
+              {recentTransactions.length ? <div className='divide-y divide-slate-100'>{recentTransactions.slice(0, 6).map((entry) => <div key={`${entry.type}-${entry._id}`} className='flex items-center gap-3 py-3 first:pt-1 last:pb-0'><span className={`flex h-10 w-10 items-center justify-center rounded-xl ${entry.type === 'income' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>{entry.type === 'income' ? <LuArrowUpRight /> : <LuArrowDownLeft />}</span><div className='min-w-0 flex-1'><p className='truncate text-sm font-medium text-slate-800'>{entry.type === 'income' ? (entry.source || 'Income') : (entry.category || 'Expense')}</p><p className='mt-0.5 text-xs text-slate-500'>{dateLabel(entry.date)}</p></div><span className={`whitespace-nowrap text-sm font-semibold ${entry.type === 'income' ? 'text-emerald-600' : 'text-slate-800'}`}>{entry.type === 'income' ? '+' : '−'}<Money amount={entry.amount} /></span></div>)}</div> : <EmptyChart message='Your recent activity will appear here.' />}
             </section>
           </div>
 
           <section className='rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6'>
-            <div className='mb-5 flex items-start justify-between'><div><h2 className='text-lg font-semibold text-slate-900'>Last 30 days expenses</h2><p className='mt-1 text-sm text-slate-500'>Daily spending activity</p></div><span className='text-sm font-semibold text-rose-600'>{money(dashboardData?.last30DaysExpense?.total)}</span></div>
+            <div className='mb-5 flex items-start justify-between'><div><h2 className='text-lg font-semibold text-slate-900'>Last 30 days expenses</h2><p className='mt-1 text-sm text-slate-500'>Daily spending activity</p></div><Money amount={dashboardData?.last30DaysExpense?.total} className='text-sm font-semibold text-rose-600' /></div>
             {expenseTransactions.length ? <div className='h-64 min-w-0'><ResponsiveContainer width='100%' height='100%'><BarChart data={expenseByDay} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}><CartesianGrid vertical={false} strokeDasharray='3 3' stroke='#eef0f5' /><XAxis dataKey='label' tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} interval={4} /><YAxis tickFormatter={shortMoney} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={48} /><Tooltip formatter={(value) => money(value)} labelStyle={{ color: '#334155' }} /><Bar dataKey='total' name='Expenses' fill='#f06565' radius={[5, 5, 0, 0]} maxBarSize={22} /></BarChart></ResponsiveContainer></div> : <EmptyChart message='No expenses recorded during the last 30 days.' />}
           </section>
 
           <div className='grid gap-6 lg:grid-cols-2'>
             <section className='rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6'>
               <div className='mb-4'><h2 className='text-lg font-semibold text-slate-900'>Last 60 days income</h2><p className='mt-1 text-sm text-slate-500'>Income split by source</p></div>
-              {incomeTransactions.length && incomeData.length ? <div className='grid items-center gap-3 sm:grid-cols-[1fr_1fr]'><div className='h-56 min-w-0'><ResponsiveContainer width='100%' height='100%'><PieChart><Pie data={incomeData} dataKey='value' nameKey='name' innerRadius={48} outerRadius={82} paddingAngle={3} stroke='none'>{incomeData.map((item, index) => <Cell key={item.name} fill={COLORS[index % COLORS.length]} />)}</Pie><Tooltip formatter={(value) => money(value)} /></PieChart></ResponsiveContainer></div><div className='max-h-48 space-y-3 overflow-y-auto'>{incomeData.map((item, index) => <div key={item.name} className='flex items-center justify-between gap-2 text-sm'><span className='flex min-w-0 items-center gap-2 text-slate-500'><span className='h-2.5 w-2.5 shrink-0 rounded-full' style={{ backgroundColor: COLORS[index % COLORS.length] }} /><span className='truncate'>{item.name}</span></span><span className='font-semibold text-slate-800'>{money(item.value)}</span></div>)}</div></div> : <EmptyChart message='No income recorded during the last 60 days.' />}
-              <p className='mt-2 border-t border-slate-100 pt-3 text-sm text-slate-500'>Total received <span className='float-right font-semibold text-emerald-600'>{money(dashboardData?.last60DaysIncome?.total)}</span></p>
+              {incomeTransactions.length && incomeData.length ? <div className='grid items-center gap-3 sm:grid-cols-[1fr_1fr]'><div className='h-56 min-w-0'><ResponsiveContainer width='100%' height='100%'><PieChart><Pie data={incomeData} dataKey='value' nameKey='name' innerRadius={48} outerRadius={82} paddingAngle={3} stroke='none'>{incomeData.map((item, index) => <Cell key={item.name} fill={COLORS[index % COLORS.length]} />)}</Pie><Tooltip formatter={(value) => money(value)} /></PieChart></ResponsiveContainer></div><div className='max-h-48 space-y-3 overflow-y-auto'>{incomeData.map((item, index) => <div key={item.name} className='flex items-center justify-between gap-2 text-sm'><span className='flex min-w-0 items-center gap-2 text-slate-500'><span className='h-2.5 w-2.5 shrink-0 rounded-full' style={{ backgroundColor: COLORS[index % COLORS.length] }} /><span className='truncate'>{item.name}</span></span><Money amount={item.value} className='font-semibold text-slate-800' /></div>)}</div></div> : <EmptyChart message='No income recorded during the last 60 days.' />}
+              <p className='mt-2 border-t border-slate-100 pt-3 text-sm text-slate-500'>Total received <Money amount={dashboardData?.last60DaysIncome?.total} className='float-right font-semibold text-emerald-600' /></p>
             </section>
 
             <section className='rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6'>
               <div className='mb-5'><h2 className='text-lg font-semibold text-slate-900'>Expense details</h2><p className='mt-1 text-sm text-slate-500'>Spending by category · all time</p></div>
-              {expenseData.length ? <div className='space-y-4'>{expenseData.map((item, index) => { const max = Math.max(...expenseData.map((entry) => Number(entry.total) || 0), 1); return <div key={item.name}><div className='mb-1.5 flex items-center justify-between gap-3 text-sm'><span className='truncate font-medium text-slate-700'>{item.name || 'Other'}</span><span className='shrink-0 font-semibold text-slate-800'>{money(item.total)}</span></div><div className='h-2 overflow-hidden rounded-full bg-slate-100'><div className='h-full rounded-full' style={{ width: `${Math.max(3, (Number(item.total) / max) * 100)}%`, backgroundColor: COLORS[index % COLORS.length] }} /></div></div>})}</div> : <EmptyChart message='Your category breakdown appears after you add expenses.' />}
+              {expenseData.length ? <div className='space-y-4'>{expenseData.map((item, index) => { const max = Math.max(...expenseData.map((entry) => Number(entry.total) || 0), 1); return <div key={item.name}><div className='mb-1.5 flex items-center justify-between gap-3 text-sm'><span className='truncate font-medium text-slate-700'>{item.name || 'Other'}</span><Money amount={item.total} className='shrink-0 font-semibold text-slate-800' /></div><div className='h-2 overflow-hidden rounded-full bg-slate-100'><div className='h-full rounded-full' style={{ width: `${Math.max(3, (Number(item.total) / max) * 100)}%`, backgroundColor: COLORS[index % COLORS.length] }} /></div></div>})}</div> : <EmptyChart message='Your category breakdown appears after you add expenses.' />}
             </section>
           </div>
 
           <section className='rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6'>
             <div className='mb-5'><h2 className='text-lg font-semibold text-slate-900'>Income details</h2><p className='mt-1 text-sm text-slate-500'>Your income sources · all time</p></div>
-            {dashboardData?.allIncomeBySource?.length ? <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>{dashboardData.allIncomeBySource.map((item, index) => <div key={item.name} className='rounded-xl bg-slate-50 p-4'><div className='mb-3 flex items-center gap-2'><span className='h-2.5 w-2.5 rounded-full' style={{ backgroundColor: COLORS[index % COLORS.length] }} /><p className='truncate text-sm text-slate-500'>{item.name || 'Other'}</p></div><p className='text-xl font-bold text-slate-900'>{money(item.total)}</p></div>)}</div> : <EmptyChart message='Your income source breakdown appears after you add income.' />}
+            {dashboardData?.allIncomeBySource?.length ? <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>{dashboardData.allIncomeBySource.map((item, index) => <div key={item.name} className='rounded-xl bg-slate-50 p-4'><div className='mb-3 flex items-center gap-2'><span className='h-2.5 w-2.5 rounded-full' style={{ backgroundColor: COLORS[index % COLORS.length] }} /><p className='truncate text-sm text-slate-500'>{item.name || 'Other'}</p></div><Money amount={item.total} className='text-xl font-bold text-slate-900' /></div>)}</div> : <EmptyChart message='Your income source breakdown appears after you add income.' />}
           </section>
         </>}
       </div>

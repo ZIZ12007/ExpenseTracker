@@ -21,7 +21,7 @@ const MODEL_CHAIN = (
 
 const isConfigured = () => Boolean(process.env.GEMINI_API_KEY);
 
-const callModel = async (model, { prompt, image, pdf, json = true }) => {
+const callModel = async (model, { prompt, image, pdf, json = true, timeoutMs = 12000 }) => {
     const parts = [{ text: prompt }];
     if (image) {
         parts.push({ inline_data: { mime_type: image.mimeType, data: image.base64 } });
@@ -40,6 +40,9 @@ const callModel = async (model, { prompt, image, pdf, json = true }) => {
                 ...(json ? { responseMimeType: 'application/json' } : {}),
             },
         }),
+        // Without this a slow model would hold the request open until the
+        // host gives up, and the user would see a timeout instead of a plan.
+        signal: AbortSignal.timeout(timeoutMs),
     });
 
     const result = await response.json().catch(() => ({}));
@@ -66,25 +69,33 @@ const callGemini = async (options) => {
     const tried = new Set();
     let lastError = null;
 
+    // The whole attempt has a budget. When it runs out the caller falls back
+    // to its own planner rather than making the user wait.
+    const deadline = Date.now() + Number(process.env.GEMINI_TOTAL_BUDGET_MS || 25000);
+    const perModel = Number(process.env.GEMINI_MODEL_TIMEOUT_MS || 12000);
+
     const order = lastWorkingModel
         ? [lastWorkingModel, ...MODEL_CHAIN]
         : MODEL_CHAIN;
 
     for (const model of order) {
         if (tried.has(model)) continue;
+        if (Date.now() >= deadline) break;
         tried.add(model);
 
         for (let attempt = 0; attempt < 2; attempt++) {
+            const left = deadline - Date.now();
+            if (left <= 1000) break;
             try {
-                const text = await callModel(model, options);
+                const text = await callModel(model, { ...options, timeoutMs: Math.min(perModel, left) });
                 lastWorkingModel = model;
                 return { text, model };
             } catch (err) {
                 lastError = err;
                 // A busy model is worth one more try; a quota or missing model
                 // is not.
-                if (err.status === 503 && attempt === 0) {
-                    await new Promise((r) => setTimeout(r, 1500));
+                if (err.status === 503 && attempt === 0 && Date.now() < deadline - 2000) {
+                    await new Promise((r) => setTimeout(r, 1200));
                     continue;
                 }
                 break;

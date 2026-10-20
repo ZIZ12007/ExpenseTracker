@@ -9,6 +9,7 @@ import { UserContext } from '../context/UserContextDefinition';
 import { API_PATHS } from '../utils/apiPaths';
 import axiosInstance from '../utils/axiosInstance';
 import { CURRENCIES, useCurrency, setCurrency } from '../utils/currency';
+import Money from '../components/Money';
 
 const Settings = () => {
     useUserAuth();
@@ -200,7 +201,7 @@ const Settings = () => {
                                 className="mt-1.5 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-violet-400"
                             />
                             <span className="mt-1 block text-xs font-normal text-slate-400">
-                                How much you plan to spend in a day. {money(Number(allowance) || 0)} right now.
+                                How much you plan to spend in a day. <Money amount={Number(allowance) || 0} /> right now.
                             </span>
                         </label>
                     </div>

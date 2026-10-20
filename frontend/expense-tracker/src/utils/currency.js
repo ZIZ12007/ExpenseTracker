@@ -62,6 +62,25 @@ export const formatCompact = (value, code = current) => {
 };
 
 /**
+ * Splits an amount into its symbol and the number, so the symbol can be
+ * rendered in a font that really has the currency sign.
+ */
+export const splitMoney = (value, code = current) => {
+    const currency = CURRENCIES[code] || CURRENCIES.NGN;
+    const amount = Number(value) || 0;
+    let formatted;
+    try {
+        formatted = new Intl.NumberFormat(currency.locale, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }).format(amount);
+    } catch {
+        formatted = amount.toFixed(2);
+    }
+    return { symbol: currency.symbol, number: formatted };
+};
+
+/**
  * A hook so components re-render when the currency changes.
  */
 export const useCurrency = () => {
@@ -78,5 +97,6 @@ export const useCurrency = () => {
         currency: CURRENCIES[code] || CURRENCIES.NGN,
         money: (value) => formatMoney(value, code),
         compact: (value) => formatCompact(value, code),
+        split: (value) => splitMoney(value, code),
     };
 };

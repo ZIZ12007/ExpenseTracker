@@ -8,6 +8,7 @@ import { UserContext } from '../context/UserContextDefinition';
 import { API_PATHS } from '../utils/apiPaths';
 import axiosInstance from '../utils/axiosInstance';
 import { useCurrency } from '../utils/currency';
+import Money from '../components/Money';
 
 const FREQUENCIES = [
     { value: 'daily', label: 'Every day' },
@@ -128,11 +129,16 @@ const Budget = () => {
     const getRecommendations = async () => {
         setBusy(true);
         try {
-            const response = await axiosInstance.post(API_PATHS.BUDGET.RECOMMENDATIONS, { preferences: [] });
+            const response = await axiosInstance.post(API_PATHS.BUDGET.RECOMMENDATIONS, { preferences: [] }, { timeout: 60000 });
             setPlan(response.data.plan);
             setSummary(response.data.summary);
+            setError('');
         } catch (requestError) {
-            fail(requestError.response?.data?.message || 'A plan could not be made right now.');
+            if (requestError.code === 'ECONNABORTED') {
+                setError('That took too long. The free AI tier is busy right now - please try again in a moment.');
+            } else {
+                fail(requestError.response?.data?.message || 'A plan could not be made right now. Please try again.');
+            }
         } finally {
             setBusy(false);
         }
@@ -176,20 +182,20 @@ const Budget = () => {
                         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-tour="summary">
                             <div className="rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 p-5 text-white">
                                 <p className="text-sm text-white/80">Daily allowance</p>
-                                <p className="mt-3 text-3xl font-bold">{money(summary?.dailyAllowance || 0)}</p>
+                                <p className="mt-3 text-3xl font-bold"><Money amount={summary?.dailyAllowance || 0} /></p>
                             </div>
                             <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
                                 <p className="text-sm text-slate-500">Already committed</p>
-                                <p className="mt-3 text-3xl font-bold text-slate-900">{money(summary?.committedDaily || 0)}</p>
+                                <p className="mt-3 text-3xl font-bold text-slate-900"><Money amount={summary?.committedDaily || 0} /></p>
                                 <p className="mt-1 text-xs text-slate-400">{summary?.committedPercent || 0}% of your allowance</p>
                             </div>
                             <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
                                 <p className="text-sm text-slate-500">Left for food</p>
-                                <p className="mt-3 text-3xl font-bold text-emerald-600">{money(summary?.foodBudget || 0)}</p>
+                                <p className="mt-3 text-3xl font-bold text-emerald-600"><Money amount={summary?.foodBudget || 0} /></p>
                             </div>
                             <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
                                 <p className="text-sm text-slate-500">Spent today</p>
-                                <p className="mt-3 text-3xl font-bold text-slate-900">{money(summary?.spentToday || 0)}</p>
+                                <p className="mt-3 text-3xl font-bold text-slate-900"><Money amount={summary?.spentToday || 0} /></p>
                             </div>
                         </section>
 
@@ -277,7 +283,7 @@ const Budget = () => {
                                                     {FREQUENCIES.find((f) => f.value === item.frequency)?.label} · {item.category}
                                                 </p>
                                             </div>
-                                            <span className="text-sm font-semibold text-slate-900">{money(item.amount)}</span>
+                                            <Money amount={item.amount} className="text-sm font-semibold text-slate-900" />
                                             <button
                                                 type="button"
                                                 onClick={() => removeRecurring(item._id)}
@@ -358,7 +364,7 @@ const Budget = () => {
                                             <li key={`${meal.name}-${index}`} className="rounded-2xl border border-slate-100 p-4">
                                                 <p className="text-xs uppercase tracking-wide text-slate-400">{meal.slot}</p>
                                                 <p className="mt-1 font-semibold text-slate-900">{meal.name}</p>
-                                                <p className="mt-1 text-sm font-semibold text-emerald-600">{money(meal.cost)}</p>
+                                                <Money amount={meal.cost} className="mt-1 text-sm font-semibold text-emerald-600" />
                                                 {meal.reason && <p className="mt-2 text-xs text-slate-500">{meal.reason}</p>}
                                             </li>
                                         ))}
