@@ -189,6 +189,12 @@ the three Cloudinary variables to make avatars permanent.
 | Caching | Short-lived in-memory cache for the dashboard and for the auth lookup, invalidated on writes |
 | Sessions | 7-day access token plus a rotating refresh token, so users stop re-authenticating hourly |
 | Protection | Rate limiting (600 requests / 5 min per IP, 40 / 15 min for auth) and gzip compression |
+| Resilience | A failed database connection is retried on the next request instead of leaving the instance stuck |
+
+The auth rate limit is counted **in the database**, not in memory. An in-memory
+counter only sees the requests that reach one process, which on a serverless
+host means an attacker can spread requests across instances; one write per
+attempt keeps the limit global.
 
 Measured with 200 simulated users and 60,000 transactions (800 requests, 50 concurrent):
 

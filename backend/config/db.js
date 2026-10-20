@@ -124,6 +124,14 @@ const connectDB = async () => {
         connectionPromise = null;
         throw err;
     }
+
+    // If the attempt gave up without a connection, drop the cached promise so
+    // the next request tries again. Without this a single failed attempt (a
+    // brief network hiccup, a failover) would leave the instance permanently
+    // unable to serve requests.
+    if (mongoose.connection.readyState !== 1) {
+        connectionPromise = null;
+    }
 };
 
 module.exports = connectDB;
