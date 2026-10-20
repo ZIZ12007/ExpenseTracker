@@ -71,6 +71,20 @@ const sendVerification = async (user) => {
     return token;
 }
 
+/**
+ * Tells the account holder that somebody signed in.
+ */
+const notifySignIn = async (user, req) => {
+    const device = (req.get('user-agent') || '').split(')')[0].replace(/^.*\//, '') || 'unknown';
+    await mailer.sendSafely(() => mailer.sendSignInEmail({
+        to: user.email,
+        name: user.fullName,
+        when: new Date().toUTCString(),
+        device: device.slice(0, 60),
+        ip: req.ip,
+    }));
+};
+
 // REGISTER USER
 exports.registerUser = async (req, res) => {
     const { fullName, email, password, username, profileImageUrl } = req.body || {};
@@ -84,7 +98,22 @@ exports.registerUser = async (req, res) => {
         // Check if user already exists
         const existingUser = await User.findOne({ email: normalizedEmail });
         if (existingUser) {
-            return res.status(400).json({ message: 'User already exists with this email' });
+            // Signing up with an address that is already registered signs them
+            // in, as long as the password matches. Anything else would let
+            // anyone into an account just by knowing its email address.
+            if (await existingUser.comparePassword(password)) {
+                await notifySignIn(existingUser, req);
+                return res.status(200).json({
+                    id: existingUser._id,
+                    user: publicUser(existingUser),
+                    ...issueTokens(existingUser._id),
+                    alreadyRegistered: true,
+                    message: 'You already have an account, so you have been signed in.',
+                });
+            }
+            return res.status(409).json({
+                message: 'An account already exists with this email. Sign in instead, or reset your password.',
+            });
         }
 
         if (username) {
@@ -129,6 +158,8 @@ exports.loginUser = async (req, res) => {
         if (!user || !(await user.comparePassword(password))) {
             return res.status(401).json({ message: 'Invalid email or password' });
         }
+
+        await notifySignIn(user, req);
 
         res.status(200).json({
             id: user._id,
@@ -279,6 +310,12 @@ exports.resetPassword = async (req, res) => {
         clearToken(user, 'resetToken');
         await user.save();
 
+        await mailer.sendSafely(() => mailer.sendPasswordChangedEmail({
+            to: user.email,
+            name: user.fullName,
+            when: new Date().toUTCString(),
+        }));
+
         res.status(200).json({ message: 'Your password has been changed.', ...issueTokens(user._id) });
     } catch (err) {
         console.error('authController.resetPassword error:', err);
@@ -377,6 +414,7 @@ exports.googleCallback = async (req, res) => {
         }
 
         const tokens = issueTokens(user._id);
+        await notifySignIn(user, req);
         const fragment = new URLSearchParams({ token: tokens.token, refreshToken: tokens.refreshToken });
         res.redirect(`${frontendUrl()}/auth/callback#${fragment.toString()}`);
     } catch (err) {
@@ -445,6 +483,8 @@ exports.magicLinkEntry = async (req, res) => {
         clearToken(user, 'loginToken');
         user.emailVerified = true;
         await user.save();
+
+        await notifySignIn(user, req);
 
         const tokens = issueTokens(user._id);
         const fragment = new URLSearchParams({ token: tokens.token, refreshToken: tokens.refreshToken });

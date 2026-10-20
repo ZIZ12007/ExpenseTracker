@@ -19,6 +19,7 @@ const SignUp = () => {
   const [googleEnabled, setGoogleEnabled] = useState(false);
 
   const [error, setError] = useState(null);
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const {updateUser} = useContext(UserContext)
@@ -56,6 +57,7 @@ const SignUp = () => {
     }
 
     setError("");
+    setAlreadyRegistered(false);
 
     // SignUp API Call
     try {
@@ -87,6 +89,8 @@ const SignUp = () => {
     } catch (error) {
       if (error.response && error.response.data.message) {
         setError(error.response.data.message);
+        // 409 means the address is already registered.
+        setAlreadyRegistered(error.response.status === 409);
       } else if (error.code === "ECONNABORTED") {
         setError("The server took too long to respond. Check that MongoDB is connected, then try again.")
       } else {
@@ -147,7 +151,18 @@ const SignUp = () => {
           
           </div>
           
-          {error && <p className="text-red-500 text-xs pb-2.5">{error}</p>}
+          {error && (
+            <div className="pb-2.5">
+              <p className="text-red-500 text-xs">{error}</p>
+              {alreadyRegistered && (
+                <p className="mt-1 text-xs text-slate-700">
+                  <Link className="font-medium text-purple-600 underline" to="/login">Sign in instead</Link>
+                  {' · '}
+                  <Link className="font-medium text-purple-600 underline" to="/forgot-password">Reset your password</Link>
+                </p>
+              )}
+            </div>
+          )}
 
           <button type="submit" disabled={isSubmitting} className="btn-primary disabled:cursor-wait disabled:opacity-60">
             {isSubmitting ? "CREATING ACCOUNT…" : "SIGN UP"}

@@ -14,6 +14,9 @@ const isConfigured = () => Boolean(process.env.RESEND_API_KEY);
 
 const from = () => process.env.MAIL_FROM || 'Expense Tracker <onboarding@resend.dev>';
 
+// Where the app lives, used for the links inside the emails.
+const frontendUrl = () => process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
+
 const escapeHtml = (value) => String(value ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -41,6 +44,7 @@ const send = async ({ to, subject, html, text }) => {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({ from: from(), to: [to], subject, html, text }),
+        signal: AbortSignal.timeout(Number(process.env.MAIL_TIMEOUT_MS || 8000)),
     });
 
     const result = await response.json().catch(() => ({}));
@@ -48,6 +52,19 @@ const send = async ({ to, subject, html, text }) => {
         throw new Error(`Resend rejected the message: ${result?.message || response.status}`);
     }
     return { sent: true, id: result.id };
+};
+
+/**
+ * Sends an email without letting a slow or broken mail service hold up the
+ * request. It takes the function that builds and sends the email, so the
+ * right template is always used.
+ */
+const sendSafely = async (sendEmail) => {
+    try {
+        await sendEmail();
+    } catch (err) {
+        console.error('Could not send the email:', err.message);
+    }
 };
 
 const sendVerificationEmail = async ({ to, name, link }) => {
@@ -96,10 +113,72 @@ const sendMagicLinkEmail = async ({ to, name, link, isNewAccount = false }) => {
     return send({ to, subject, html, text });
 };
 
+/**
+ * Sent every time somebody signs in, so the account holder knows.
+ */
+const sendSignInEmail = async ({ to, name, when, device, ip }) => {
+    const subject = 'New sign in to your Expense Tracker account';
+    const html = layout('A new sign in', `
+      <p style="font-size:15px;line-height:1.6">Hi ${escapeHtml(name || 'there')},</p>
+      <p style="font-size:15px;line-height:1.6">Your Expense Tracker account was just signed in to.</p>
+      <table style="margin:20px 0;font-size:14px;border-collapse:collapse">
+        <tr><td style="padding:4px 12px 4px 0;color:#64748b">When</td><td style="padding:4px 0;color:#0f172a">${escapeHtml(when)}</td></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:#64748b">Device</td><td style="padding:4px 0;color:#0f172a">${escapeHtml(device || 'unknown')}</td></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:#64748b">IP address</td><td style="padding:4px 0;color:#0f172a">${escapeHtml(ip || 'unknown')}</td></tr>
+      </table>
+      <p style="font-size:14px;color:#475569">If this was not you, change your password straight away and sign out of anything you do not recognise.</p>
+    `);
+    const text = `Your Expense Tracker account was signed in to on ${when}. If this was not you, change your password.`;
+    return send({ to, subject, html, text });
+};
+
+/**
+ * Sent when the password is changed, so the change cannot happen silently.
+ */
+const sendPasswordChangedEmail = async ({ to, name, when }) => {
+    const subject = 'Your Expense Tracker password was changed';
+    const html = layout('Your password was changed', `
+      <p style="font-size:15px;line-height:1.6">Hi ${escapeHtml(name || 'there')},</p>
+      <p style="font-size:15px;line-height:1.6">
+        The password on your Expense Tracker account was changed on ${escapeHtml(when)}.
+      </p>
+      <p style="font-size:15px;line-height:1.6">
+        If that was not you, reset your password now and contact us.
+      </p>
+      <p style="margin:24px 0">
+        <a href="${escapeHtml(`${frontendUrl()}/forgot-password`)}" style="background:#7c3aed;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block">Reset my password</a>
+      </p>
+    `);
+    const text = `Your Expense Tracker password was changed on ${when}. If this was not you, reset your password.`;
+    return send({ to, subject, html, text });
+};
+
+/**
+ * Sent when the profile or settings are changed.
+ */
+const sendProfileUpdatedEmail = async ({ to, name, changes, when }) => {
+    const subject = 'Your Expense Tracker profile was updated';
+    const rows = changes.map((change) => `<li style="margin:4px 0">${escapeHtml(change)}</li>`).join('');
+    const html = layout('Your profile was updated', `
+      <p style="font-size:15px;line-height:1.6">Hi ${escapeHtml(name || 'there')},</p>
+      <p style="font-size:15px;line-height:1.6">Your Expense Tracker profile was updated on ${escapeHtml(when)}.</p>
+      ${rows ? `<ul style="margin:16px 0 0 18px;font-size:15px;line-height:1.7">${rows}</ul>` : ''}
+      <p style="font-size:14px;color:#475569;margin-top:20px">
+        If you did not make this change, reset your password and contact us straight away.
+      </p>
+    `);
+    const text = `Your Expense Tracker profile was updated on ${when}. ${changes.join('; ')}`;
+    return send({ to, subject, html, text });
+};
+
 module.exports = {
     isConfigured,
     send,
+    sendSafely,
     sendVerificationEmail,
     sendPasswordResetEmail,
     sendMagicLinkEmail,
+    sendSignInEmail,
+    sendPasswordChangedEmail,
+    sendProfileUpdatedEmail,
 };
