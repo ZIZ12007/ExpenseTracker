@@ -8,3 +8,5 @@ backend/uploads/
 backend/*.xlsx
 backend/tmp-debug-delete.js
 *.log
+.vercel/
+.vercel

@@ -3,7 +3,7 @@ import { LuArrowDownToLine, LuCalendarDays, LuPlus, LuSearch, LuTrash2, LuWallet
 import DashboardLayout from '../Layout/DashboardLayout'
 import { useUserAuth } from '../../hooks/useUserAuth'
 import { API_PATHS } from '../../utils/apiPaths'
-import axiosInstance from '../../utils/axiosinstance'
+import axiosInstance from '../../utils/axiosInstance'
 
 const EXPENSE_CATEGORIES = ['Food & dining', 'Shopping', 'Transport', 'Bills & utilities', 'Health', 'Entertainment', 'Travel', 'Other']
 const INCOME_SOURCES = ['Salary', 'Freelance', 'Business', 'Investment', 'Gift', 'Other']
