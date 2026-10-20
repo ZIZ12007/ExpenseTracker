@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { getTourStep, setTourStep, resetTourStep } from '../utils/onboardingState';
 
 /**
  * A guided first-run tour.
@@ -46,12 +47,17 @@ const STEPS = [
 const PADDING = 8;
 
 const Onboarding = ({ onComplete, onSkip }) => {
-    const [step, setStep] = useState(0);
+    const [step, setStep] = useState(getTourStep());
     const [rect, setRect] = useState(null);
     const navigate = useNavigate();
     const location = useLocation();
 
     const current = STEPS[step];
+
+    const goToStep = (value) => {
+        setTourStep(value);
+        setStep(value);
+    };
 
     // Move to the page the step points at, if it is not the current one.
     useEffect(() => {
@@ -91,6 +97,7 @@ const Onboarding = ({ onComplete, onSkip }) => {
     }, [onSkip]);
 
     const finish = () => {
+        resetTourStep();
         onComplete?.();
         onSkip?.();
     };
@@ -100,7 +107,7 @@ const Onboarding = ({ onComplete, onSkip }) => {
             finish();
             return;
         }
-        setStep((value) => value + 1);
+        goToStep(step + 1);
     };
 
     const isLast = step === STEPS.length - 1;
