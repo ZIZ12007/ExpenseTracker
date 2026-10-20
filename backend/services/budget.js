@@ -27,6 +27,12 @@ const MEAL_PRICES = [
 
 const DAY = 24 * 60 * 60 * 1000;
 
+const SYMBOLS = {
+    NGN: '₦', USD: '$', GBP: '£', EUR: '€', GHS: '₵', ZAR: 'R', KES: 'KSh',
+};
+
+const symbolFor = (currency) => SYMBOLS[currency] || `${currency} `;
+
 /**
  * Converts a recurring expense into what it costs per day.
  */
@@ -78,6 +84,7 @@ const summarise = ({ allowance, recurring = [], spentToday = 0, spentThisWeek = 
  * A deterministic meal plan, used when the AI is not configured or fails.
  */
 const fallbackPlan = ({ foodBudget, currency = 'NGN', preferences = [] }) => {
+    const symbol = symbolFor(currency);
     const wantsVegetarian = preferences.includes('vegetarian');
     const affordable = MEAL_PRICES
         .filter((m) => (wantsVegetarian ? !/chicken|egusi|suya|egg/i.test(m.name) : true))
@@ -94,7 +101,7 @@ const fallbackPlan = ({ foodBudget, currency = 'NGN', preferences = [] }) => {
             name: choice.name,
             slot,
             cost: choice.cost,
-            reason: `Fits the remaining ${currency} ${budget.toLocaleString('en-NG')} food budget`,
+            reason: `Fits the remaining ${symbol}${budget.toLocaleString('en-NG')} food budget`,
         });
         budget -= choice.cost;
     }
@@ -103,7 +110,7 @@ const fallbackPlan = ({ foodBudget, currency = 'NGN', preferences = [] }) => {
     if (foodBudget <= 0) {
         tips.push('Your recurring costs already use the whole allowance. Lower the daily cap on one of them, or raise your allowance.');
     } else {
-        tips.push(`Plan for about ${currency} ${foodBudget.toLocaleString('en-NG')} a day on food and keep the rest for transport and data.`);
+        tips.push(`Plan for about ${symbol}${foodBudget.toLocaleString('en-NG')} a day on food and keep the rest for transport and data.`);
         tips.push('Cooking in batches at the start of the week is usually the single biggest saving.');
     }
     if (wantsVegetarian) tips.push('Beans, okra and moi moi are the cheapest proteins on this list.');
@@ -111,7 +118,7 @@ const fallbackPlan = ({ foodBudget, currency = 'NGN', preferences = [] }) => {
     return {
         source: 'rules',
         headline: foodBudget > 0
-            ? `Here is a plan for ${currency} ${foodBudget.toLocaleString('en-NG')} a day.`
+            ? `Here is a plan for ${symbol}${foodBudget.toLocaleString('en-NG')} a day.`
             : 'Your allowance is fully committed right now.',
         meals: plan,
         tips,
@@ -120,4 +127,4 @@ const fallbackPlan = ({ foodBudget, currency = 'NGN', preferences = [] }) => {
     };
 };
 
-module.exports = { summarise, fallbackPlan, dailyCost, MEAL_PRICES, DAY };
+module.exports = { summarise, fallbackPlan, dailyCost, MEAL_PRICES, DAY, symbolFor };

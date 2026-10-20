@@ -109,7 +109,7 @@ ${preferences.includes('vegetarian') ? 'Only suggest vegetarian options.' : ''}
 
 Return JSON only, in exactly this shape:
 {
-  "headline": "one short encouraging sentence",
+  "headline": "one short encouraging sentence, mentioning the daily food amount with the ${currency} symbol",
   "meals": [
     { "name": "dish", "slot": "breakfast|lunch|supper", "cost": 0, "reason": "why this fits the budget" }
   ],
