@@ -78,9 +78,10 @@ const uploadFile = async (buffer, { filename = 'file', contentType = 'applicatio
 
     const resourceType = contentType.startsWith('image/') ? 'image' : 'raw';
     const safeName = String(filename || 'file').replace(/[^a-zA-Z0-9._-]/g, '-');
-    const publicId = folder ? `${folder}/${Date.now()}-${safeName}` : `${Date.now()}-${safeName}`;
 
-    const params = { timestamp: Math.floor(Date.now() / 1000), public_id: publicId };
+    // The folder is passed separately so Cloudinary places the file there
+    // once, rather than the folder being written into the name as well.
+    const params = { timestamp: Math.floor(Date.now() / 1000), public_id: `${Date.now()}-${safeName}` };
     if (folder) params.folder = folder;
 
     const form = new FormData();
