@@ -7,7 +7,8 @@ const {
     getUserInfo,
 } = require("../controllers/authController")
 const upload = require("../middleware/uploadMiddleware")
-const { isEnabled: cloudinaryEnabled, uploadBuffer } = require("../services/cloudinary")
+const fs = require('fs')
+const { isEnabled: cloudinaryEnabled, uploadBuffer: uploadToCloudinary } = require("../services/cloudinary")
 
 const router = express.Router()
 
@@ -22,26 +23,27 @@ router.post("/upload-image", upload.single("image"), async (req, res) => {
         return res.status(400).json({ message: 'No file uploaded' });
     }
 
-    try {
-        let imageUrl;
+    const localUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
 
-        if (cloudinaryEnabled()) {
+    if (cloudinaryEnabled()) {
+        try {
             // Stored in Cloudinary, so it survives redeploys.
-            imageUrl = await uploadBuffer(req.file.buffer, {
+            const imageUrl = await uploadToCloudinary(fs.readFileSync(req.file.path), {
                 folder: process.env.CLOUDINARY_FOLDER || 'expensetracker/avatars',
                 filename: req.file.originalname,
                 contentType: req.file.mimetype,
             });
-        } else {
-            // Stored on the local disk, which most hosts wipe on redeploy.
-            imageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+            // The local copy is no longer needed.
+            fs.unlink(req.file.path, () => {});
+            return res.status(200).json({ imageUrl });
+        } catch (err) {
+            // Fall back to local storage rather than failing the request.
+            console.error('Cloudinary upload failed, falling back to local storage:', err.message);
         }
-
-        res.status(200).json({ imageUrl });
-    } catch (err) {
-        console.error('authRoutes.upload-image error:', err);
-        res.status(500).json({ message: 'Image upload failed' });
     }
+
+    // Stored on the local disk, which most hosts wipe on redeploy.
+    res.status(200).json({ imageUrl: localUrl });
 })
 
 module.exports = router

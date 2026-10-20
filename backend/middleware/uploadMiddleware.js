@@ -1,24 +1,19 @@
 const multer = require('multer')
-const path = require('path')
-const { isEnabled } = require('../services/cloudinary')
 const { resolveUploadsDir } = require('../config/storage')
 
-// Resolve the upload directory from this file, not from process.cwd(), so the
-// folder is the same one that server.js serves statically at /uploads.
+// The file is always written to disk first. If Cloudinary is configured the
+// file is then uploaded from there, so a Cloudinary outage degrades to local
+// storage instead of failing the request.
 const uploadsDir = resolveUploadsDir()
 
-// When Cloudinary is configured the file is kept in memory and uploaded from
-// there; otherwise it is written to local disk.
-const storage = isEnabled()
-    ? multer.memoryStorage()
-    : multer.diskStorage({
-        destination: (req, file, cb) => {
-            cb(null, uploadsDir)
-        },
-        filename: (req, file, cb) => {
-            cb(null, `${Date.now()}-${file.originalname}`)
-        },
-    })
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, uploadsDir)
+    },
+    filename: (req, file, cb) => {
+        cb(null, `${Date.now()}-${file.originalname}`)
+    },
+})
 
 //File Filter
 const fileFilter = (req, file, cb) => {
